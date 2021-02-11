@@ -1,8 +1,6 @@
-#VCFParser
+# VCFParser
 
-# iVar tool variant report generator
-
-Extract SNVs from a VCF file associated with a given SARS-COV2 Variable of Concern (VOC)
+Extract non-duplicated SNVs from a VCF file associated with a given SARS-COV2 Variable of Concern (VOC)
 Append new SNVs to the `data/cov_lineage_variants.tsv` file
 
 ### Requirements
