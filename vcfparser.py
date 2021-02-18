@@ -155,9 +155,14 @@ if __name__ == '__main__':
 
     #filter 2: by match to REF and ALT in metadata
     for row_idx_vcf in vcf_df.loc[vcf_selected_idx,:].index:
+        #would work as positions in meta and vcf_df match Empty DataFrame should not happen due to position discrep
         Ref,Alt = VOCmeta_df[VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]][["Ref","Alt"]].values[0]
 
         if any(vcf_df.loc[row_idx_vcf, ["REF","ALT"]] == [Ref,Alt]) == False:
+            print("WARNING: Position {} REF and ALT allele mismatch with the metadata. {}/{} (VCF) vs {}/{} (META)".format(
+                    vcf_df.loc[row_idx_vcf,"POS"],vcf_df.loc[row_idx_vcf, "REF"],
+                    vcf_df.loc[row_idx_vcf, "ALT"],Ref,Alt))
+
             vcf_selected_idx[row_idx_vcf]=False #change selection index to false bool
 
     vcf_df = vcf_df[vcf_selected_idx]
