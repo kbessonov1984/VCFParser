@@ -121,7 +121,8 @@ if __name__ == '__main__':
         vcf_source = "TSV File"
     else:
         raise Exception("Unsupported input type")
-    vcf_df.to_csv("test.tsv", sep="\t",index=False)
+
+    vcf_df.to_csv("tsv2vcf_temp.vcf", sep="\t",index=False)
 
     if vcf_df.empty:
         raise  Exception("Empty input vcf_df DataFrame. Input parsing failed")
@@ -146,13 +147,25 @@ if __name__ == '__main__':
     if not type(vcf_df.loc[0,"POS"]) == type(VOCmeta_df.loc[0,"Position"]):
         raise Exception("vcf_df[\"POS\"] and VOCmeta_df[\"Position\"] types do not match. Check var type conversions")
 
-    VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df["POS"])]
-    print("{} SNVs not found:\n {}".format(VOCmetaNotFound.shape[0],
-        VOCmetaNotFound[["NucName","AAName","Position"]].to_string(index=False)))
+
 
     #filter 1: by posistion
-    vcf_selected_idx = vcf_df["POS"].isin(VOCmeta_df["Position"]).to_list()
+    vcf_selected_idx = vcf_df["POS"].isin(VOCmeta_df["Position"])
+
+
+    #filter 2: by match to REF and ALT in metadata
+    for row_idx_vcf in vcf_df.loc[vcf_selected_idx,:].index:
+        Ref,Alt = VOCmeta_df[VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]][["Ref","Alt"]].values[0]
+
+        if any(vcf_df.loc[row_idx_vcf, ["REF","ALT"]] == [Ref,Alt]) == False:
+            vcf_selected_idx[row_idx_vcf]=False #change selection index to false bool
+
     vcf_df = vcf_df[vcf_selected_idx]
+    VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df["POS"])]
+
+    print("{} SNVs not found:\n {}".format(VOCmetaNotFound.shape[0],
+                                           VOCmetaNotFound[["NucName", "AAName", "Position"]].to_string(index=False)))
+
     if len(vcf_df.index) == 0:
         warnings.warn("Zero SNVs found in VCF. Might be an interesting sample or issue with input ... ")
 
@@ -164,6 +177,8 @@ if __name__ == '__main__':
     vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df,VOCmeta_df)
     if vcf_df_cleaned.shape[0] == 0:
         vcf_df_cleaned.loc[0,"CHROM"] = "NO MATCHING SNVs"
+
+
 
     print("Writing out {} snvs to VCF".format(vcf_df_cleaned.shape[0]))
     vcf_df_cleaned.to_csv(output_file_name,sep="\t",index=False, mode="w")
