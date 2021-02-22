@@ -3,6 +3,8 @@ import pandas as pd
 import argparse, warnings
 import os, re
 
+import  VOCheatmapper
+
 #constants
 support_ext = ["txt","tsv","vcf"]
 
@@ -52,7 +54,7 @@ def get_input_type(path):
     return file_extension
 
 def convert_tsv2vcf(tsvfilepath):
-    vcf_list_for_df = [];
+    vcf_list_for_df = []
     vcf_df_header = ["CHROM","POS","ID","REF","ALT","TYPE","QUAL","FILTER", "INFO","FORMAT","SAMPLE"]
     with open(tsvfilepath) as fp:
         tsvheader = fp.readline().split()
@@ -90,12 +92,13 @@ def convert_tsv2vcf(tsvfilepath):
 
     return pd.DataFrame(vcf_list_for_df,columns=vcf_df_header)
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     parser = argparse.ArgumentParser("VCFparser.py parses iVar (https://andersen-lab.github.io/ivar/html/manualpage.html) "
                                      "TSV or VCF output files and filters out snvs linked to by the VOC\n")
     parser.add_argument('-i', '--input', required=True,
                         type=check_file_existance_and_type,
+                        nargs='+',
 						help="List of ivar_variants.vcf or ivar_variants.tsv to summarise")
     parser.add_argument('-voc', '--voc_name',
 						 required=True, help="Variant of Concern name (UK, SA) "
@@ -110,85 +113,101 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    inputtype = get_input_type(args.input)
-
-    if inputtype == "vcf":
-        skip_line_n, vcf_source = find_vcf_headerline_source(args.input)
-        print("VCF source {}\nSelected VOC:{}".format(vcf_source, args.voc_name))
-        vcf_df = pd.read_csv(args.input, sep="\t", skiprows=skip_line_n)
-    elif inputtype == "tsv":
-        vcf_df = convert_tsv2vcf(args.input)
-        vcf_source = "TSV File"
-    else:
-        raise Exception("Unsupported input type")
-
-    vcf_df.to_csv("tsv2vcf_temp.vcf", sep="\t",index=False)
-
-    if vcf_df.empty:
-        raise  Exception("Empty input vcf_df DataFrame. Input parsing failed")
-
-
-    input_file_name = os.path.basename(args.input)
-    output_file_name = str(input_file_name.split(".vcf")[0])+"."+args.voc_name+".trimmed.vcf"
-
     VOCmeta_df = pd.read_csv(args.ref_meta, sep="\t")
     VOCmeta_df = VOCmeta_df[VOCmeta_df.VOC == args.voc_name]
+    VOCmeta_df.sort_values(by=['Position'], inplace=True)
+    VOCmeta_df["NucName+AAName"] = VOCmeta_df["NucName"] + "|" + VOCmeta_df["AAName"]
+    nVOCSNVs = VOCmeta_df.shape[0]
 
-    if VOCmeta_df.empty:
-        raise Exception("Selected VOC {}  is not available in metadata file {}".format(args.voc_name,args.ref_meta))
+    for sample_path in args.input:
+        inputtype = get_input_type(sample_path)
 
-    if vcf_source == 'iVar':
-        VOCmeta_df.loc[VOCmeta_df["Type"] == "Del", "Position"] += 1
+        if inputtype == "vcf":
+            skip_line_n, vcf_source = find_vcf_headerline_source(sample_path)
+            print("VCF source {}\nSelected VOC:{}".format(vcf_source, args.voc_name))
+            vcf_df = pd.read_csv(sample_path, sep="\t", skiprows=skip_line_n)
+        elif inputtype == "tsv":
+            vcf_df = convert_tsv2vcf(sample_path)
+            vcf_source = "TSV File"
+        else:
+            raise Exception("Unsupported input type")
 
+        vcf_df.to_csv("tsv2vcf_temp.vcf", sep="\t",index=False)
 
-    if args.stat_filter_snvs:
-        VOCmeta_df = VOCmeta_df[VOCmeta_df["SignatureSNV"] == True]
-
-    if not type(vcf_df.loc[0,"POS"]) == type(VOCmeta_df.loc[0,"Position"]):
-        raise Exception("vcf_df[\"POS\"] and VOCmeta_df[\"Position\"] types do not match. Check var type conversions")
-
-
-
-    #filter 1: by posistion
-    vcf_selected_idx = vcf_df["POS"].isin(VOCmeta_df["Position"])
-
-
-    #filter 2: by match to REF and ALT in metadata
-    for row_idx_vcf in vcf_df.loc[vcf_selected_idx,:].index:
-        #would work as positions in meta and vcf_df match Empty DataFrame should not happen due to position discrep
-        Ref,Alt = VOCmeta_df[VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]][["Ref","Alt"]].values[0]
-
-        if any(vcf_df.loc[row_idx_vcf, ["REF","ALT"]] == [Ref,Alt]) == False:
-            print("WARNING: Position {} REF and ALT allele mismatch with the metadata. {}/{} (VCF) vs {}/{} (META)".format(
-                    vcf_df.loc[row_idx_vcf,"POS"],vcf_df.loc[row_idx_vcf, "REF"],
-                    vcf_df.loc[row_idx_vcf, "ALT"],Ref,Alt))
-
-            vcf_selected_idx[row_idx_vcf]=False #change selection index to false bool
-
-    vcf_df = vcf_df[vcf_selected_idx]
-    VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df["POS"])]
-
-    print("{} SNVs not found:\n {}".format(VOCmetaNotFound.shape[0],
-                                           VOCmetaNotFound[["NucName", "AAName", "Position"]].to_string(index=False)))
-
-    if len(vcf_df.index) == 0:
-        warnings.warn("Zero SNVs found in VCF. Might be an interesting sample or issue with input ... ")
+        if vcf_df.empty:
+            raise  Exception("Empty input vcf_df DataFrame. Input parsing failed")
 
 
-    if args.stat_filter_snvs and "FILTER" in vcf_df.columns:
-        vcf_df = vcf_df[vcf_df["FILTER"] == "PASS"]
+        input_file_name = os.path.basename(sample_path)
+        output_file_name = str(input_file_name.split(".vcf")[0])+"."+args.voc_name+".trimmed.vcf"
 
 
-    vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df,VOCmeta_df)
-    if vcf_df_cleaned.shape[0] == 0:
-        vcf_df_cleaned.loc[0,"CHROM"] = "NO MATCHING SNVs"
+
+        if VOCmeta_df.empty:
+            raise Exception("Selected VOC {}  is not available in metadata file {}".format(args.voc_name,args.ref_meta))
+
+        if vcf_source == 'iVar':
+            VOCmeta_df.loc[VOCmeta_df["Type"] == "Del", "Position"] += 1
 
 
+        if args.stat_filter_snvs:
+            VOCmeta_df = VOCmeta_df[VOCmeta_df["SignatureSNV"] == True]
+
+        if not type(vcf_df.loc[0,"POS"]) == type(VOCmeta_df.loc[0,"Position"]):
+            raise Exception("vcf_df[\"POS\"] and VOCmeta_df[\"Position\"] types do not match. Check var type conversions")
+
+
+
+        #filter 1: by posistion
+        vcf_selected_idx = vcf_df["POS"].isin(VOCmeta_df["Position"])
+
+
+        #filter 2: by match to REF and ALT in metadata
+        for row_idx_vcf in vcf_df.loc[vcf_selected_idx,:].index:
+            #would work as positions in meta and vcf_df match Empty DataFrame should not happen due to position discrep
+            Ref,Alt = VOCmeta_df[VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]][["Ref","Alt"]].values[0]
+
+            if any(vcf_df.loc[row_idx_vcf, ["REF","ALT"]] == [Ref,Alt]) == False:
+                print("WARNING: Position {} REF and ALT allele mismatch with the metadata. {}/{} (VCF) vs {}/{} (META)".format(
+                        vcf_df.loc[row_idx_vcf,"POS"],vcf_df.loc[row_idx_vcf, "REF"],
+                        vcf_df.loc[row_idx_vcf, "ALT"],Ref,Alt))
+
+                vcf_selected_idx[row_idx_vcf]=False #change selection index to false bool
+
+        vcf_df = vcf_df[vcf_selected_idx]
+        VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df["POS"])]
+
+        print("In sample {}, a total of {} SNVs were not found:\n {}".format(
+                                               input_file_name,
+                                               VOCmetaNotFound.shape[0],
+                                               VOCmetaNotFound[["NucName", "AAName", "Position"]].to_string(index=False)))
+
+        if len(vcf_df.index) == 0:
+            warnings.warn("Zero SNVs found in VCF. Might be an interesting sample or issue with input ... ")
+
+
+        if args.stat_filter_snvs and "FILTER" in vcf_df.columns:
+            vcf_df = vcf_df[vcf_df["FILTER"] == "PASS"]
+
+
+        vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df,VOCmeta_df)
+        if vcf_df_cleaned.shape[0] == 0:
+            vcf_df_cleaned.loc[0,"CHROM"] = "NO MATCHING SNVs"
+
+
+
+        # add extra column for to record sample SNV counts for heatmap
+        VOCmeta_df[input_file_name] = [0] * nVOCSNVs
+        # append alt_freq values for the selected snvs
+        VOCmeta_df.loc[VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"]),input_file_name] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+
+
+        # VOCmeta_df[input_file_name]=VOCmeta_df[input_file_name].apply(lambda x: None if x == 0 else x)
+    VOCmeta_df.to_csv("heatmap_data2plot.tsv",sep="\t")
 
     print("Writing out {} snvs to VCF".format(vcf_df_cleaned.shape[0]))
     vcf_df_cleaned.to_csv(output_file_name,sep="\t",index=False, mode="w")
     print("Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
-    print("Writting SNVs not found metadata tsv file \"{}\"".format("snvs_not_found.tsv"))
-    VOCmetaNotFound.to_csv("snvs_not_found.tsv",sep="\t",index=False)
-    print("Done")
 
+    VOCheatmapper.renderplot(VOCmeta_df)
+    print("Done")
