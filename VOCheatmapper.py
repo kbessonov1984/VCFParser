@@ -36,8 +36,8 @@ def heatmap(data, row_labels, col_labels, ax=None,
 
     # Create colorbar legend
     cbar = ax.figure.colorbar(im, ax=ax,  **cbar_kw)
-    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
-    cbar.ax.tick_params(labelsize=5)
+    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom",size=3)
+    cbar.ax.tick_params(labelsize=3)
 
     # We want to show all ticks...
     ax.set_xticks(np.arange(data.shape[1]))
@@ -60,7 +60,7 @@ def heatmap(data, row_labels, col_labels, ax=None,
 
     ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
     ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
-    ax.grid(which="minor", color="w", linestyle='-', linewidth=0.1)
+    ax.grid(which="minor", color="grey", linestyle='-', linewidth=0.1)
     ax.tick_params(which="minor", bottom=False, left=False)
 
     return im, cbar
@@ -131,7 +131,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
 def renderplot(data=pd.DataFrame(),debug=False):
     #DEBUG read in input dataframe with x and y labels
-    #debug=True
+
     if debug:
         data = pd.read_csv('test/SNVsamplesummary.tsv', sep="\t")
         SNVnames = data["NucName+AAName"].tolist()
@@ -168,7 +168,7 @@ def renderplot(data=pd.DataFrame(),debug=False):
 
 
     #fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: qrates[::-1][norm(x)])
-    plt.figure(figsize=(2, 5), dpi=300)
+    plt.figure(figsize=(2, 3.5), dpi=300)
     cmap=plt.get_cmap("YlGnBu", 10) #RdYlGn red green
     cmap.set_over('black')
     cmap.set_under('white')
@@ -193,4 +193,4 @@ def renderplot(data=pd.DataFrame(),debug=False):
     plt.savefig("heatmap.png")
 
 if __name__ == "__main__":
-    renderplot()
+    renderplot(debug=True)
