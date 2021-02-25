@@ -93,14 +93,15 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
         the text labels.
     """
 
+    if type(textcolors) is not list:
+        raise Exception("textcolors should be a list and not string")
     if not isinstance(data, (list, np.ndarray)):
         data = im.get_array()
 
     # Normalize the threshold to the images color range.
     if threshold is not None:
         threshold = im.norm(threshold)
-    else:
-        threshold = im.norm(data.max())/2.
+
 
     # Set default alignment to center, but allow it to be
     # overwritten by textkw.
@@ -117,9 +118,14 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     texts = []
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
-            kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
+            if threshold:
+                kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)]) #return 0 or 1
+            else:
+                kw.update(color=textcolors[0])
+
 
             value =  valfmt(data[i, j], None)
+
 
             if float(value) == 0 :
                 value = ""
@@ -129,10 +135,9 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     return texts
 
 
-def renderplot(data=pd.DataFrame(),debug=False):
-    #DEBUG read in input dataframe with x and y labels
+def renderplot(data=pd.DataFrame(),debug=False, title="", axis=None):
 
-    if debug:
+    if debug: #DEBUG read in input dataframe with x and y labels for testing only purposes
         data = pd.read_csv('test/SNVsamplesummary.tsv', sep="\t")
         SNVnames = data["NucName+AAName"].tolist()
         data = data.iloc[:, 1:]
@@ -161,19 +166,20 @@ def renderplot(data=pd.DataFrame(),debug=False):
     y = ["{}".format(i) for i in SNVnames]
     #x = ["Sample {}".format(i) for i in range(1, data.shape[1]+1)]
     x = ["{}".format(s) for s in data.columns]
-    print(data)
+
 
     #qrates = list("ABCDEFGJKL")
     norm = matplotlib.colors.BoundaryNorm(np.arange(0.1,1.1,0.1), 10)
 
 
     #fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: qrates[::-1][norm(x)])
-    plt.figure(figsize=(2, 3.5), dpi=300)
+    # plt.figure(figsize=(2, 3.5), dpi=300)
     cmap=plt.get_cmap("YlGnBu", 10) #RdYlGn red green
     cmap.set_over('black')
     cmap.set_under('white')
 
     im, _ = heatmap(data, y, x,
+                    ax=axis,
                     cmap=cmap,
                     norm=norm,
                     axis_kw=dict(size=3),
@@ -186,11 +192,14 @@ def renderplot(data=pd.DataFrame(),debug=False):
 
 
     annotate_heatmap(im, valfmt="{x:.3f}",
-                     size=2, threshold=20, textcolors="w"
+                     size=1.8,  textcolors=["lightcoral"]
                      )
 
-    plt.tight_layout()
-    plt.savefig("heatmap.png")
+    axis.set_title(title, fontsize='5', fontstyle='oblique', fontweight='bold')
+    #plt.title(title,loc='right', fontsize='5', fontstyle='oblique', fontweight='bold')
+    #plt.tight_layout()
+    #plt.savefig("heatmap.png")
+    #return plt
 
 if __name__ == "__main__":
     renderplot(debug=True)
