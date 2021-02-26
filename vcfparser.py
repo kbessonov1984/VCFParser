@@ -4,7 +4,7 @@ import argparse, warnings
 import os, re
 import matplotlib.pyplot as plt
 
-import  VOCheatmapper
+import VOCheatmapper
 
 #constants
 support_ext = ["txt","tsv","vcf"]
@@ -207,7 +207,8 @@ if __name__ == '__main__':
                 else:
                     raise Exception("No matches for position {} in metadata".format(vcf_df.loc[row_idx_vcf, "POS"]))
 
-                if any(vcf_df.loc[row_idx_vcf, ["REF","ALT"]] == [Ref,Alt]) == False:
+
+                if not all(vcf_df.loc[row_idx_vcf, ["REF","ALT"]] == [Ref,Alt]):
                     print("WARNING: Position {} REF and ALT allele mismatch with the metadata. {}/{} (VCF) vs {}/{} (META)".format(
                             vcf_df.loc[row_idx_vcf,"POS"],vcf_df.loc[row_idx_vcf, "REF"],
                             vcf_df.loc[row_idx_vcf, "ALT"],Ref,Alt))
@@ -253,29 +254,29 @@ if __name__ == '__main__':
 
 
 
-            vcf_df = vcf_df[vcf_selected_idx]
-            VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df["POS"])]
+            vcf_df_temp = vcf_df[vcf_selected_idx].copy()
+            VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df_temp["POS"])]
 
             #DEBUG
-            print(VOCmetaNotFound[["VOC","Position","NucName"]])
-            print(input_file_name)
+            #print(VOCmetaNotFound[["VOC","Position","NucName"]])
+            #print(input_file_name)
 
             print("In sample {}, a total of {} SNVs were not found:\n {}".format(
                                                    input_file_name,
                                                    VOCmetaNotFound.shape[0],
                                                    VOCmetaNotFound[["NucName", "AAName", "Position"]].to_string(index=False)))
 
-            if len(vcf_df.index) == 0:
+            if len(vcf_df_temp.index) == 0:
                 warnings.warn("Zero SNVs found in {} for {} VOC SNVs."
                               "Might be an interesting sample or issue with input ... ".format(input_file_name,
                                                                                                vocname))
 
 
-            if args.stat_filter_snvs and "FILTER" in vcf_df.columns:
-                vcf_df = vcf_df[vcf_df["FILTER"] == "PASS"]
+            if args.stat_filter_snvs and "FILTER" in vcf_df_temp.columns:
+                vcf_df_temp = vcf_df_temp[vcf_df_temp["FILTER"] == "PASS"]
 
             #filter #4: Remove duplicated entries per position
-            vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df,VOCmeta_df)
+            vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df_temp,VOCmeta_df)
             if vcf_df_cleaned.shape[0] == 0:
                 vcf_df_cleaned.loc[0,"CHROM"] = "NO MATCHING SNVs"
 
@@ -284,11 +285,16 @@ if __name__ == '__main__':
             # add extra column for to record sample SNV counts for heatmap
             VOCmeta_df[input_file_name] = [0] * nVOCSNVs
             # append ALT_FREQ values for the selected snvs
-            VOCmeta_df.loc[VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"]),input_file_name] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+            VOCmeta_df.loc[(VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"])) &
+                           (VOCmeta_df["Ref"].isin(vcf_df_cleaned["REF"])) &
+                           (VOCmeta_df["Alt"].isin(vcf_df_cleaned["ALT"])),input_file_name] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+
+            print(vocname)
+            print(VOCmeta_df.loc[:,["NucName","AAName","Position",input_file_name]])
+            #exit(1)
 
 
-
-            #DEBUG
+        #DEBUG
         VOCmeta_df.to_csv("heatmap_data2plot-{}.tsv".format(vocname),sep="\t")
 
         if output_file_name and not vcf_df_cleaned.empty:
