@@ -36,7 +36,7 @@ optional arguments:
                         PASS flag)
   --subplots_mode SUBPLOTS_MODE
                         How to plot multiple plots (onerow, onecolumn,
-                        singleplot)
+                        oneplotperfile)
   --min_snv_freq_threshold [0-1]
                         Set minimum SNV frequency threshold to display
                         (default: 0)

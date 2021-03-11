@@ -126,7 +126,7 @@ if __name__ == '__main__':
     parser.add_argument('--stat_filter_snvs', required=False, action='store_true',
                         help="Filter snvs based on statistical significance (i.e. QC PASS flag)")
     parser.add_argument('--subplots_mode',  default="oneplotperfile",
-                        required=True, help="How to plot multiple plots (onerow, onecolumn, singleplot)"
+                        required=True, help="How to plot multiple plots (onerow, onecolumn, oneplotperfile)"
                         )
     parser.add_argument('--min_snv_freq_threshold', default=0, type=check_decimal_range, metavar="[0-1]",
                         required=False, help="Set minimum SNV frequency threshold to display (default: 0)"
