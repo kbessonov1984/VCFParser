@@ -1,11 +1,12 @@
 import matplotlib
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pandas as pd
 import numpy as np
 
 
-def heatmap(data, row_labels, col_labels, ax=None,
-            cbar_kw={}, axis_kw={}, cbarlabel="", **kwargs):
+def heatmap(data, row_labels, col_labels, ax=None, title="",
+            cbar_kw={}, axis_kw={}, cbarlabel="",  **kwargs):
     """
     Create a heatmap from a numpy array and two lists of labels.
 
@@ -35,7 +36,7 @@ def heatmap(data, row_labels, col_labels, ax=None,
     im = ax.imshow(data, **kwargs)
 
     # Create colorbar legend
-    cbar = ax.figure.colorbar(im, ax=ax,  **cbar_kw)
+    cbar = ax.figure.colorbar(im, ax=ax, aspect=10, fraction=0.10, drawedges=True, **cbar_kw)
     cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom",size=3)
     cbar.ax.tick_params(labelsize=3)
 
@@ -62,6 +63,7 @@ def heatmap(data, row_labels, col_labels, ax=None,
     ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
     ax.grid(which="minor", color="grey", linestyle='-', linewidth=0.1)
     ax.tick_params(which="minor", bottom=False, left=False)
+    ax.set_title(title, fontsize='5', fontstyle='oblique', fontweight='bold')
 
     return im, cbar
 
@@ -135,7 +137,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     return texts
 
 
-def renderplot(data=pd.DataFrame(),debug=False, title="", axis=None):
+def renderplot(data=pd.DataFrame(),debug=False, title="",  is_text_annotate=False, axis=None):
 
     if debug: #DEBUG read in input dataframe with x and y labels for testing only purposes
         data = pd.read_csv('test/SNVsamplesummary.tsv', sep="\t")
@@ -169,12 +171,12 @@ def renderplot(data=pd.DataFrame(),debug=False, title="", axis=None):
 
 
     #qrates = list("ABCDEFGJKL")
-    norm = matplotlib.colors.BoundaryNorm(np.arange(0.1,1.1,0.1), 10)
+    norm = matplotlib.colors.BoundaryNorm(np.arange(0.00001,1.1,0.1), 11)
 
 
     #fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: qrates[::-1][norm(x)])
     # plt.figure(figsize=(2, 3.5), dpi=300)
-    cmap=plt.get_cmap("YlGnBu", 10) #RdYlGn red green
+    cmap=plt.get_cmap("YlGnBu", 11) #RdYlGn red green
     cmap.set_over('black')
     cmap.set_under('white')
 
@@ -183,19 +185,21 @@ def renderplot(data=pd.DataFrame(),debug=False, title="", axis=None):
                     cmap=cmap,
                     norm=norm,
                     axis_kw=dict(size=3),
-                    cbar_kw=dict(ticks=np.arange(0,1.1,0.1),
+                    cbar_kw=dict(ticks=np.arange(0.00001,1.1,0.1),
                                  extend="both",
                                  orientation="vertical",
                                  spacing='proportional',
-                                 shrink=0.5),#, format=fmt),
-                    cbarlabel="ALT_FREQ")
+                                 shrink=0.6),#, format=fmt),
+                    cbarlabel="ALT_FREQ",
+                    title=title)
 
 
-    annotate_heatmap(im, valfmt="{x:.3f}",
-                     size=1.8,  textcolors=["lightcoral"]
-                     )
+    if is_text_annotate:
+        annotate_heatmap(im, valfmt="{x:.3f}",
+                         size=1.8,  textcolors=["lightcoral"]
+                         )
 
-    axis.set_title(title, fontsize='5', fontstyle='oblique', fontweight='bold')
+
     #plt.title(title,loc='right', fontsize='5', fontstyle='oblique', fontweight='bold')
     #plt.tight_layout()
     #plt.savefig("heatmap.png")

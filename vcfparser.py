@@ -97,6 +97,17 @@ def convert_tsv2vcf(tsvfilepath):
 def csv_list(string):
    return string.split(',')
 
+def check_decimal_range(arg):
+    try:
+        value = float(arg)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(str(err))
+
+    if value < 0 and value > 1:
+        message = "Expected 0 >= value <= 1, got value = {}".format(value)
+        raise argparse.ArgumentTypeError(message)
+
+    return value
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("VCFparser.py parses iVar (https://andersen-lab.github.io/ivar/html/manualpage.html) "
                                      "TSV or VCF output files and filters out snvs linked to by the VOC\n")
@@ -113,13 +124,23 @@ if __name__ == '__main__':
     parser.add_argument('--signature_snvs_only', required=False, action='store_true',
                         help="Check VCF for only signature/official snvs linked to a VOC")
     parser.add_argument('--stat_filter_snvs', required=False, action='store_true',
-                        help="Filter snvs based on statistical significance")
-    parser.add_argument('--subplots_orientation',  default="row",
-                        required=False, help="List of Variants of Concern names (e.g. UK, SA, Brazil, Nigeria) "
+                        help="Filter snvs based on statistical significance (i.e. QC PASS flag)")
+    parser.add_argument('--subplots_mode',  default="oneplotperfile",
+                        required=True, help="How to plot multiple plots (onerow, onecolumn, singleplot)"
                         )
+    parser.add_argument('--min_snv_freq_threshold', default=0, type=check_decimal_range, metavar="[0-1]",
+                        required=False, help="Set minimum SNV frequency threshold to display (default: 0)"
+                        )
+    parser.add_argument('--annotate', required=False, action='store_true',
+                        help="Annotate heatmap with SNV frequency values")
+
 
     args = parser.parse_args()
     output_file_name=""; vcf_df_cleaned=pd.DataFrame()
+    input_folder_name = os.path.basename(os.path.dirname(args.input[0]))
+    MAXnVOCSNVs=0
+    axis_list=[]
+
 
 
     VOCmeta_df_full = pd.read_csv(args.ref_meta, sep="\t")
@@ -128,34 +149,52 @@ if __name__ == '__main__':
     else:
         vocnames=args.voc_names
 
+    if len(vocnames) == 0:
+        raise Exception("VOC names not speciefied")
+
     n_heatmaps = len(vocnames) #heatmaps to plot
     n_samples = len(args.input) #samples per plot
 
-    if args.subplots_orientation == "row":
-        figsizedim = [1.8*n_heatmaps+(0.5*n_samples),1.7*n_heatmaps] #width and height in inches
-        fig, axis = plt.subplots(nrows=1, ncols=n_heatmaps, figsize=figsizedim, dpi=300)
-    elif args.subplots_orientation == "column": #column arrangement by default
-        figsizedim = [1.8, 1.8*n_heatmaps+(0.5*n_samples)]  # width and height in inches
-        fig, axis = plt.subplots(ncols=1, nrows=n_heatmaps, figsize=figsizedim, dpi=300)
-    else:
-        raise Exception("Subplot orientation values not defined. Permitted values: row, column")
 
-    if not hasattr(axis, '__iter__'): #if number of plots is 1
-        axis = [axis]
-        fig.set_size_inches(2, 3.5)
+    if args.subplots_mode == "onerow":
+        figsizedim = [1.8*n_heatmaps+(0.5*n_samples),1.7*n_heatmaps] #width and height in inches
+        fig, axis_list = plt.subplots(nrows=1, ncols=n_heatmaps, figsize=figsizedim, dpi=300)
+    elif args.subplots_mode == "onecolumn": #column arrangement by default
+        figsizedim = [1.8, 1.8*n_heatmaps+(0.5*n_samples)]  # width and height in inches
+        fig, axis_list = plt.subplots(ncols=1, nrows=n_heatmaps, figsize=figsizedim, dpi=300)
+    elif args.subplots_mode == "oneplotperfile":
+        figures_idx_map_dict={}; fig_counter=1
+        for vocname in vocnames:
+            fig, axis = plt.subplots(ncols=1, nrows=1, dpi=300)
+            figures_idx_map_dict[vocname] = fig_counter
+            axis_list.append(axis)
+            fig_counter=fig_counter+1
+    else:
+        raise Exception("Subplot {} orientation is not valid. Permitted values: row, column".format(args.subplots_mode))
+
+
+
+    if not hasattr(axis_list, '__iter__'): #if number of sub-plots is 1
+        axis_list = [axis_list]
+
+
+    axis_dict = dict(zip(vocnames, axis_list))
+
 
     #plots are based on VOCs containing several samples (main VOC plot loop)
-    for vocname, subplotaxis in zip(vocnames,axis):
-
+    for vocname in vocnames:
         #filter master metadata based on VOC name parameter
         VOCmeta_df = VOCmeta_df_full[VOCmeta_df_full.VOC == vocname].copy()
         VOCmeta_df.sort_values(by=['Position'], inplace=True)
         VOCmeta_df["NucName+AAName"] = VOCmeta_df["NucName"] + "|" + VOCmeta_df["AAName"]
         nVOCSNVs = VOCmeta_df.shape[0]
+        MAXnVOCSNVs = max([MAXnVOCSNVs,nVOCSNVs])
+
+
 
         for sample_path in args.input:
             inputtype = get_input_type(sample_path)
-            input_file_name = os.path.basename(sample_path)
+            input_file_name = os.path.splitext(os.path.basename(sample_path))[0] #get samplename without file extension
             output_file_name = str(input_file_name.split(".vcf")[0]) + "." + vocname + ".trimmed.vcf"
 
             if inputtype == "vcf":
@@ -282,38 +321,71 @@ if __name__ == '__main__':
 
 
 
-            # add extra column for to record sample SNV counts for heatmap
+            # add extra column for to record sample SNV ALT_FREQ for heatmap
             VOCmeta_df[input_file_name] = [0] * nVOCSNVs
             # append ALT_FREQ values for the selected snvs
             VOCmeta_df.loc[(VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"])) &
                            (VOCmeta_df["Ref"].isin(vcf_df_cleaned["REF"])) &
-                           (VOCmeta_df["Alt"].isin(vcf_df_cleaned["ALT"])),input_file_name] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+                           (VOCmeta_df["Alt"].isin(vcf_df_cleaned["ALT"])),input_file_name] = \
+                vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
 
-            print(vocname)
-            print(VOCmeta_df.loc[:,["NucName","AAName","Position",input_file_name]])
-            #exit(1)
+            #filter based on set threshold if set by the user
+            if args.min_snv_freq_threshold:
+                VOCmeta_df.loc[VOCmeta_df[input_file_name] <= args.min_snv_freq_threshold, input_file_name] = 0
+            #print(VOCmeta_df.loc[:,["NucName","AAName","Position",input_file_name]])
+
 
 
         #DEBUG
         VOCmeta_df.to_csv("heatmap_data2plot-{}.tsv".format(vocname),sep="\t")
+        print("INFO: Data to plot written to heatmap_data2plot-{}.tsv".format(vocname))
 
         if output_file_name and not vcf_df_cleaned.empty:
-            print("Writing out {} snvs to VCF".format(vcf_df_cleaned.shape[0]))
+            print("INFO: Writing out {} snvs to VCF".format(vcf_df_cleaned.shape[0]))
             vcf_df_cleaned.to_csv(output_file_name,sep="\t",index=False, mode="w")
-            print("Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
+            print("INFO: Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
 
 
         VOCpangolineage = VOCmeta_df["PangoLineage"].unique()[0]
-        VOCheatmapper.renderplot(VOCmeta_df,
+
+        if args.subplots_mode == "oneplotperfile":
+            fig = plt.figure(figures_idx_map_dict[vocname]) #make figure object active for rendering
+            fig.set_size_inches(1.8+0.1*n_samples,0.135*nVOCSNVs)
+            VOCheatmapper.renderplot(VOCmeta_df,
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
-                                     axis=subplotaxis)
+                                     axis=axis_dict[vocname],
+                                     is_text_annotate=args.annotate)
+            heatmapfilename = "heatmap-overall-{}-{}.png".format(input_folder_name, vocname)
+            plt.tight_layout()
+            plt.savefig(heatmapfilename)
+            plt.close()
+            print("INFO: Heatmap rendered as {} at {}".format(heatmapfilename, os.getcwd()))
+        else:
+            VOCheatmapper.renderplot(VOCmeta_df,
+                                     title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
+                                     axis=axis_dict[vocname],
+                                     is_text_annotate=args.annotate)
 
 
 
 
-    plt.tight_layout()
-    input_folder_name = os.path.basename(os.path.dirname(args.input[0]))
-    heatmapfilename="heatmap-overall-{}.png".format(input_folder_name)
-    plt.savefig(heatmapfilename)
-    print("Heatmap rendered as {} at {}".format(heatmapfilename, os.getcwd()))
+
+
+
+
+    if plt.get_fignums(): #if any figures left open, then save them to file
+        fig.set_size_inches(fig.get_size_inches()[0], 0.10 * MAXnVOCSNVs)  # width and height
+        plt.tight_layout()
+        heatmapfilename="heatmap-overall-{}.png".format(input_folder_name)
+        plt.savefig(heatmapfilename)
+        plt.close()
+        print("INFO: Heatmap rendered as {} at {}".format(heatmapfilename, os.getcwd()))
+
     print("Done")
+
+#TODO: bold S-gene linked SNVs in heatmap
+#TODO: for non-called snvs (i.e. with no-frequency) check for coverage and if coverage is absent annotate as NoCov or NC
+#TODO: Add colour range (0,0.1) while non-called SNVs will be white - Done
+#TODO: remove tsv extension from the sample names - Done
+#TODO: add optional frequencies text annotation key
+#TODO: make y-axis more squeezed (less space between snv names) - Done
