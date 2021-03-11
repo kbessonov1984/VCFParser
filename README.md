@@ -6,7 +6,7 @@ Append new SNVs to the `data/cov_lineage_variants.tsv` file
 ### Requirements
 * pandas
 * python >= 3
-
+* matplotlib >= 3 
 
 ### Usage
 
