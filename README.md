@@ -32,8 +32,14 @@ optional arguments:
   --signature_snvs_only
                         Check VCF for only signature/official snvs linked to a
                         VOC
-  --stat_filter_snvs    Filter snvs based on statistical significance
-  --subplots_orientation SUBPLOTS_ORIENTATION
-                        List of Variants of Concern names (e.g. UK, SA,
-                        Brazil, Nigeria)
+  --stat_filter_snvs    Filter snvs based on statistical significance (i.e. QC
+                        PASS flag)
+  --subplots_mode SUBPLOTS_MODE
+                        How to plot multiple plots (onerow, onecolumn,
+                        singleplot)
+  --min_snv_freq_threshold [0-1]
+                        Set minimum SNV frequency threshold to display
+                        (default: 0)
+  --annotate            Annotate heatmap with SNV frequency values
+
 ```
