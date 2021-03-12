@@ -5,9 +5,10 @@ import os, re
 import matplotlib.pyplot as plt
 
 import VOCheatmapper
+import BAMutilities
 
 #constants
-support_ext = ["txt","tsv","vcf"]
+support_ext = ["txt","tsv","vcf", "bam"]
 
 
 def check_file_existance_and_type(path):
@@ -115,6 +116,11 @@ if __name__ == '__main__':
                         type=check_file_existance_and_type,
                         nargs='+',
 						help="List of ivar_variants.vcf or ivar_variants.tsv to summarise")
+    parser.add_argument('-bam', '--bam_files', required=False,
+                        type=check_file_existance_and_type,
+                        nargs='+',
+                        help="Optionally provide a list of corresponding bam files in THE SAME ORDER as"
+                             "files provided for the -i parameter")
     parser.add_argument('-voc', '--voc_names', type = csv_list,
 						 required=True, help="List of Variants of Concern names (e.g. UK, SA, Brazil, Nigeria) "
                         )
@@ -123,6 +129,8 @@ if __name__ == '__main__':
 						help="Path to metadata TSV file containing info on the key mutations")
     parser.add_argument('--signature_snvs_only', required=False, action='store_true',
                         help="Check VCF for only signature/official snvs linked to a VOC")
+    parser.add_argument('--key_snvs_only', required=False, action='store_true',
+                        help="Check VCF for only the key (S-gene associated)  snvs linked to a VOC")
     parser.add_argument('--stat_filter_snvs', required=False, action='store_true',
                         help="Filter snvs based on statistical significance (i.e. QC PASS flag)")
     parser.add_argument('--subplots_mode',  default="oneplotperfile",
@@ -135,12 +143,18 @@ if __name__ == '__main__':
                         help="Annotate heatmap with SNV frequency values")
 
 
+
     args = parser.parse_args()
     output_file_name=""; vcf_df_cleaned=pd.DataFrame()
     input_folder_name = os.path.basename(os.path.dirname(args.input[0]))
     MAXnVOCSNVs=0
     axis_list=[]
+    bam_vcf_tsv_files_pairs_dict = {}
 
+
+
+    if args.bam_files:
+        bam_vcf_tsv_files_pairs_dict = dict(zip(args.input,args.bam_files))
 
 
     VOCmeta_df_full = pd.read_csv(args.ref_meta, sep="\t")
@@ -183,14 +197,20 @@ if __name__ == '__main__':
 
     #plots are based on VOCs containing several samples (main VOC plot loop)
     for vocname in vocnames:
+        read_coverages_2Darray = []
+
         #filter master metadata based on VOC name parameter
         VOCmeta_df = VOCmeta_df_full[VOCmeta_df_full.VOC == vocname].copy()
         VOCmeta_df.sort_values(by=['Position'], inplace=True)
         VOCmeta_df["NucName+AAName"] = VOCmeta_df["NucName"] + "|" + VOCmeta_df["AAName"]
+
+        if args.signature_snvs_only:
+            VOCmeta_df = VOCmeta_df[VOCmeta_df["SignatureSNV"] == True]
+        if args.key_snvs_only:
+            VOCmeta_df = VOCmeta_df[VOCmeta_df["Key"] == True]
+
         nVOCSNVs = VOCmeta_df.shape[0]
-        MAXnVOCSNVs = max([MAXnVOCSNVs,nVOCSNVs])
-
-
+        MAXnVOCSNVs = max([MAXnVOCSNVs, nVOCSNVs])
 
         for sample_path in args.input:
             inputtype = get_input_type(sample_path)
@@ -219,10 +239,6 @@ if __name__ == '__main__':
 
             if vcf_source == 'iVar':
                 VOCmeta_df.loc[VOCmeta_df["Type"] == "Del", "Position"] += 1
-
-
-            if args.stat_filter_snvs:
-                VOCmeta_df = VOCmeta_df[VOCmeta_df["SignatureSNV"] == True]
 
 
             if not type(vcf_df.loc[0,"POS"]) == type(VOCmeta_df.loc[VOCmeta_df.index[0],"Position"]):
@@ -332,7 +348,12 @@ if __name__ == '__main__':
             #filter based on set threshold if set by the user
             if args.min_snv_freq_threshold:
                 VOCmeta_df.loc[VOCmeta_df[input_file_name] <= args.min_snv_freq_threshold, input_file_name] = 0
-            #print(VOCmeta_df.loc[:,["NucName","AAName","Position",input_file_name]])
+
+            #check positions for coverage
+            if bam_vcf_tsv_files_pairs_dict:
+                read_coverages_2Darray.append(BAMutilities.get_ref_coverage_array(bam_vcf_tsv_files_pairs_dict[sample_path],
+                                                             query_positions=VOCmeta_df["Position"]))
+
 
 
 
@@ -346,15 +367,16 @@ if __name__ == '__main__':
             print("INFO: Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
 
 
+        #render plot
         VOCpangolineage = VOCmeta_df["PangoLineage"].unique()[0]
-
         if args.subplots_mode == "oneplotperfile":
             fig = plt.figure(figures_idx_map_dict[vocname]) #make figure object active for rendering
             fig.set_size_inches(1.8+0.1*n_samples,0.135*nVOCSNVs)
             VOCheatmapper.renderplot(VOCmeta_df,
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
-                                     is_text_annotate=args.annotate)
+                                     is_plot_annotate=args.annotate,
+                                     read_coverages_2Darray=read_coverages_2Darray)
             heatmapfilename = "heatmap-overall-{}-{}.png".format(input_folder_name, vocname)
             plt.tight_layout()
             plt.savefig(heatmapfilename)
@@ -364,7 +386,7 @@ if __name__ == '__main__':
             VOCheatmapper.renderplot(VOCmeta_df,
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
-                                     is_text_annotate=args.annotate)
+                                     is_plot_annotate=args.annotate)
 
 
 
@@ -372,7 +394,7 @@ if __name__ == '__main__':
 
 
 
-
+    #render subplots if this feature is selected
     if plt.get_fignums(): #if any figures left open, then save them to file
         fig.set_size_inches(fig.get_size_inches()[0], 0.10 * MAXnVOCSNVs)  # width and height
         plt.tight_layout()

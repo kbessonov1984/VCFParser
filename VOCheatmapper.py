@@ -69,7 +69,10 @@ def heatmap(data, row_labels, col_labels, ax=None, title="",
 
 def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
                      textcolors=("black", "white"),
-                     threshold=None, **textkw):
+                     threshold=None,
+                     covdata=[],
+                     is_annotate = False,
+                     **textkw):
     """
     A function to annotate a heatmap.
 
@@ -118,8 +121,11 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     # Loop over the data and create a `Text` for each "pixel".
     # Change the text's color depending on the data.
     texts = []
+
+
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
+
             if threshold:
                 kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)]) #return 0 or 1
             else:
@@ -128,16 +134,35 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
             value =  valfmt(data[i, j], None)
 
-
-            if float(value) == 0 :
+            if is_annotate and covdata:
+                if covdata[j][i] == 0:
+                    value = "NC"
+                elif float(value) == 0:
+                    value = ""
+            elif is_annotate:
+                if float(value) == 0:
+                    value = ""
+            elif covdata:
                 value = ""
+                if covdata[j][i] == 0:
+                    value = "NC"
+            else:
+                value=""
+
+
             text = im.axes.text(j, i, value, **kw)
             texts.append(text)
+
+
+
+
 
     return texts
 
 
-def renderplot(data=pd.DataFrame(),debug=False, title="",  is_text_annotate=False, axis=None):
+def renderplot(data=pd.DataFrame(),debug=False, title="",
+               is_plot_annotate = False,
+               axis=None, read_coverages_2Darray=list()):
 
     if debug: #DEBUG read in input dataframe with x and y labels for testing only purposes
         data = pd.read_csv('test/SNVsamplesummary.tsv', sep="\t")
@@ -147,7 +172,6 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",  is_text_annotate=Fals
         SNVnames = data["NucName+AAName"].tolist()
         column_number = data.columns.to_list().index("NucName+AAName")+1
         data = data.iloc[:, column_number:]
-
 
 
 
@@ -194,10 +218,13 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",  is_text_annotate=Fals
                     title=title)
 
 
-    if is_text_annotate:
-        annotate_heatmap(im, valfmt="{x:.3f}",
-                         size=1.8,  textcolors=["lightcoral"]
-                         )
+    #if is_text_annotate:
+    annotate_heatmap(im, valfmt="{x:.3f}",
+                         size=1.8,  textcolors=["red"],
+                         covdata=read_coverages_2Darray,
+                         is_annotate = is_plot_annotate
+                    )
+
 
 
     #plt.title(title,loc='right', fontsize='5', fontstyle='oblique', fontweight='bold')
