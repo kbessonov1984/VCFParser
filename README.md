@@ -1,7 +1,13 @@
 # VCFParser
+Render beautiful heamaps of the SNVs of interest from variant calling software.
 
-Extract non-duplicated SNVs from a VCF file associated with a given SARS-COV2 Variable of Concern (VOC)
-Append new SNVs to the `data/cov_lineage_variants.tsv` file
+Extract non-duplicated SNVs from a VCF or iVar TSV file and render a heatmap for each 
+SARS-COV2 Variable of Concern (VOC)
+
+If SNVs of interest are not listed in the `data/cov_lineage_variants.tsv` file,
+append new ones or provide custom reference file by the `-r` parameter
+
+To render all VOC plots found in the `cov_lineage_variants.tsv` specify `-voc all`
 
 ### Requirements
 * pandas
@@ -30,7 +36,7 @@ optional arguments:
                         parameter
   -voc VOC_NAMES, --voc_names VOC_NAMES
                         List of Variants of Concern names (e.g. UK, SA,
-                        Brazil, Nigeria)
+                        Brazil, Nigeria) or keyword all
   -r REF_META, --ref_meta REF_META
                         Path to metadata TSV file containing info on the key
                         mutations
