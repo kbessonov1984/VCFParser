@@ -4,8 +4,8 @@ import argparse, warnings
 import os, re
 import matplotlib.pyplot as plt
 
-import VOCheatmapper
-import BAMutilities
+import vcfparser.VOCheatmapper as VOCheatmapper
+import vcfparser.BAMutilities as BAMutilities
 
 #constants
 support_ext = ["txt","tsv","vcf", "bam"]
@@ -109,7 +109,8 @@ def check_decimal_range(arg):
         raise argparse.ArgumentTypeError(message)
 
     return value
-if __name__ == '__main__':
+
+def main():
     parser = argparse.ArgumentParser("VCFparser.py parses iVar (https://andersen-lab.github.io/ivar/html/manualpage.html) "
                                      "TSV or VCF output files and filters out snvs linked to by the VOC\n")
     parser.add_argument('-i', '--input', required=True,
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     parser.add_argument('-voc', '--voc_names', type = csv_list,
 						 required=True, help="List of Variants of Concern names (e.g. UK, SA, Brazil, Nigeria) "
                         )
-    parser.add_argument('-r', '--ref_meta', required=False, default='data/cov_lineage_variants.tsv',
+    parser.add_argument('-r', '--ref_meta', required=False, default=os.path.dirname(__file__)+'/data/cov_lineage_variants.tsv',
                         type=check_file_existance_and_type,
 						help="Path to metadata TSV file containing info on the key mutations")
     parser.add_argument('--signature_snvs_only', required=False, action='store_true',
@@ -184,7 +185,7 @@ if __name__ == '__main__':
             axis_list.append(axis)
             fig_counter=fig_counter+1
     else:
-        raise Exception("Subplot {} orientation is not valid. Permitted values: row, column".format(args.subplots_mode))
+        raise Exception("Subplot {} orientation is not valid. Permitted values: onerow, onecolumn, oneplotperfile".format(args.subplots_mode))
 
 
 
@@ -405,6 +406,8 @@ if __name__ == '__main__':
 
     print("Done")
 
+if __name__ == '__main__':
+    main()
 #TODO: bold S-gene linked SNVs in heatmap
 #TODO: for non-called snvs (i.e. with no-frequency) check for coverage and if coverage is absent annotate as NoCov or NC
 #TODO: Add colour range (0,0.1) while non-called SNVs will be white - Done
