@@ -275,10 +275,10 @@ def main():
 
                     vcf_selected_idx[row_idx_vcf]=False #change selection index to false bool
 
+            #filter Deletions separately just by position and deletion length
+            #makes compatible with iVar and Virontus pipeline formats
             for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "DEL"), :].index:
                 metadata_pos_idx = VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]
-
-              
                 if (int(VOCmeta_df[metadata_pos_idx]["Length"])+1 != len(vcf_df.loc[row_idx_vcf,"REF"])):
                     vcf_selected_idx[row_idx_vcf] = False
                     raise Warning("Deletion length at position {} did not match. Skipping this position ...".format(int(VOCmeta_df[metadata_pos_idx]["Position"])))
@@ -336,7 +336,7 @@ def main():
                                                    VOCmetaNotFound[["NucName", "AAName", "Position"]].to_string(index=False)))
 
             if len(vcf_df_temp.index) == 0:
-                warnings.warn("Zero SNVs found in {} for {} VOC SNVs."
+                warnings.warn("Zero SNVs found in sample {} for {} VOC SNVs."
                               "Might be an interesting sample or issue with input ... ".format(input_file_name,
                                                                                                vocname))
 
@@ -351,21 +351,32 @@ def main():
 
 
 
+            # ASSIGMENT OF FREQ VALUES
             # add extra column for to record sample SNV ALT_FREQ for heatmap
             VOCmeta_df[input_file_name] = [0] * nVOCSNVs
 
+            vcf_df_cleaned["ALT_FREQ"] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+            VOCmeta_df.input_file_name = 0
 
-            # append ALT_FREQ values for the selected snvs in the SUB category
-            VOCmeta_df.loc[(VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"])) &
-                           (VOCmeta_df["Type"] == "Sub") &
-                           (VOCmeta_df["Ref"].isin(vcf_df_cleaned["REF"])) &
-                           (VOCmeta_df["Alt"].isin(vcf_df_cleaned["ALT"])),input_file_name] = \
-                vcf_df_cleaned[vcf_df_cleaned["TYPE"]=="SNP"][vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+            if all(vcf_df_cleaned["POS"].isna()):
+                warnings.warn("NO MATCHING SNVs were found for VOC {}. Skipping this VOC ... ".format(vocname))
+                continue
 
-            # append ALT_FREQ values for the selected snvs in the DEL category
-            VOCmeta_df.loc[(VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"])) &
-                           (VOCmeta_df["Type"] == "Del"), input_file_name] = \
-                vcf_df_cleaned[vcf_df_cleaned["TYPE"]=="DEL"][vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+
+
+            for idx in vcf_df_cleaned.index:
+                if vcf_df_cleaned.loc[idx,"TYPE"]=="SNP":
+                    match_query = 'Position == '+ str(vcf_df_cleaned.loc[idx,"POS"])+\
+                                  ' & Ref == \"'+vcf_df_cleaned.loc[idx,"REF"] +'\"'+\
+                                  ' & Alt == \"'+vcf_df_cleaned.loc[idx,"ALT"]+'\"''                                        '
+                else:
+                    match_query = 'Position == ' + str(vcf_df_cleaned.loc[idx, "POS"])
+
+                VOCmeta_sel_index = VOCmeta_df.query(match_query).index
+                if not VOCmeta_sel_index.empty:
+                    VOCmeta_df.loc[VOCmeta_sel_index,input_file_name] = vcf_df_cleaned.loc[idx,"ALT_FREQ"]
+
+
 
 
             #filter based on set threshold if set by the user

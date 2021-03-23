@@ -63,7 +63,7 @@ def heatmap(data, row_labels, col_labels, ax=None, title="",
     ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
     ax.grid(which="minor", color="grey", linestyle='-', linewidth=0.1)
     ax.tick_params(which="minor", bottom=False, left=False)
-    ax.set_title(title, fontsize='5', fontstyle='oblique', fontweight='bold')
+    ax.set_title(title, fontsize='3', fontstyle='oblique', fontweight='bold')
 
     return im, cbar
 
@@ -213,7 +213,7 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",
                                  extend="both",
                                  orientation="vertical",
                                  spacing='proportional',
-                                 shrink=0.6),#, format=fmt),
+                                 shrink=1),#, format=fmt),
                     cbarlabel="ALT_FREQ",
                     title=title)
 
