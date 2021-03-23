@@ -252,11 +252,15 @@ def main():
 
 
 
-            # filter 2: by match to REF and ALT in metadata for SINGLE BASE Sub and MULTIBASE DELETIONS
-            for row_idx_vcf in vcf_df.loc[vcf_selected_idx,:].index:
+            # filter 2: by match to REF and ALT alleles in substitutions (SUB) metadata
+            #           for SINGLE BASE substituions
+            for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "SNP"),:].index:
+
+                metadata_pos_idx = VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]
 
                 #would work as positions in meta and vcf_df match Empty DataFrame should not happen due to position discrep
-                Ref_Alt_df = VOCmeta_df[VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]][["Ref","Alt"]]
+                Ref_Alt_df = VOCmeta_df[ metadata_pos_idx ][["Ref","Alt"]]
+
 
                 if not Ref_Alt_df.empty:
                     Ref,Alt = Ref_Alt_df.values[0]
@@ -271,9 +275,18 @@ def main():
 
                     vcf_selected_idx[row_idx_vcf]=False #change selection index to false bool
 
+            for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "DEL"), :].index:
+                metadata_pos_idx = VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]
+
+              
+                if (int(VOCmeta_df[metadata_pos_idx]["Length"])+1 != len(vcf_df.loc[row_idx_vcf,"REF"])):
+                    vcf_selected_idx[row_idx_vcf] = False
+                    raise Warning("Deletion length at position {} did not match. Skipping this position ...".format(int(VOCmeta_df[metadata_pos_idx]["Position"])))
+
+
             # filter 3: Add here if present the multi-substitutions positions
             VOCmeta_df_multisub_idx = VOCmeta_df.loc[(VOCmeta_df["Type"] == "Sub") & (VOCmeta_df["Length"] > 1),"Position"].index
-            multisub_positions = VOCmeta_df.loc[VOCmeta_df_multisub_idx,"Position"].to_list()
+            #multisub_positions = VOCmeta_df.loc[VOCmeta_df_multisub_idx,"Position"].to_list()
 
             for idx in VOCmeta_df_multisub_idx:
                 multisub_pos = VOCmeta_df.loc[idx,"Position"]
@@ -340,11 +353,20 @@ def main():
 
             # add extra column for to record sample SNV ALT_FREQ for heatmap
             VOCmeta_df[input_file_name] = [0] * nVOCSNVs
-            # append ALT_FREQ values for the selected snvs
+
+
+            # append ALT_FREQ values for the selected snvs in the SUB category
             VOCmeta_df.loc[(VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"])) &
+                           (VOCmeta_df["Type"] == "Sub") &
                            (VOCmeta_df["Ref"].isin(vcf_df_cleaned["REF"])) &
                            (VOCmeta_df["Alt"].isin(vcf_df_cleaned["ALT"])),input_file_name] = \
-                vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+                vcf_df_cleaned[vcf_df_cleaned["TYPE"]=="SNP"][vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+
+            # append ALT_FREQ values for the selected snvs in the DEL category
+            VOCmeta_df.loc[(VOCmeta_df["Position"].isin(vcf_df_cleaned["POS"])) &
+                           (VOCmeta_df["Type"] == "Del"), input_file_name] = \
+                vcf_df_cleaned[vcf_df_cleaned["TYPE"]=="DEL"][vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+
 
             #filter based on set threshold if set by the user
             if args.min_snv_freq_threshold:
@@ -359,6 +381,7 @@ def main():
 
 
         #DEBUG
+        VOCmeta_df.sort_values("Position",inplace=True)
         VOCmeta_df.to_csv("heatmap_data2plot-{}.tsv".format(vocname),sep="\t")
         print("INFO: Data to plot written to heatmap_data2plot-{}.tsv".format(vocname))
 
@@ -414,3 +437,8 @@ if __name__ == '__main__':
 #TODO: remove tsv extension from the sample names - Done
 #TODO: add optional frequencies text annotation key
 #TODO: make y-axis more squeezed (less space between snv names) - Done
+
+#TODO: sort the heatmap by position as data frame manipulation randomizes snvs (y-axis)
+#TODO: make color bar legend independent of y-axis length
+#TODO: input file with input tsv and bam file pairs and sample name
+#TODO: make deletions detections independent of the  actual deleted sequence. Only check for position and length only. Allow accept both viralrecon and iVar
