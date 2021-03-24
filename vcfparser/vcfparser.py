@@ -113,10 +113,16 @@ def check_decimal_range(arg):
 def main():
     parser = argparse.ArgumentParser("VCFparser.py parses iVar (https://andersen-lab.github.io/ivar/html/manualpage.html) "
                                      "TSV or VCF output files and filters out snvs linked to by the VOC\n")
-    parser.add_argument('-i', '--input', required=True,
+
+    group = parser.add_mutually_exclusive_group(required=True)
+
+    group.add_argument('-i', '--input', required=False,
                         type=check_file_existance_and_type,
                         nargs='+',
 						help="List of ivar_variants.vcf or ivar_variants.tsv to summarise")
+    group.add_argument('-f', '--input_file', required=False,
+                        type=check_file_existance_and_type,
+						help="Input file with TSV/VCF and BAM file paths for batch input")
     parser.add_argument('-bam', '--bam_files', required=False,
                         type=check_file_existance_and_type,
                         nargs='+',
@@ -143,16 +149,22 @@ def main():
     parser.add_argument('--annotate', required=False, action='store_true',
                         help="Annotate heatmap with SNV frequency values")
 
+    parser.add_argument('--dpi', required=False, type=int, default=400, metavar="400",
+                        help="DPI value for the heatmap rendering. Default value: 400")
 
 
     args = parser.parse_args()
     output_file_name=""; vcf_df_cleaned=pd.DataFrame()
-    input_folder_name = os.path.basename(os.path.dirname(args.input[0]))
+
+    if args.input:
+        input_folder_name = os.path.basename(os.path.dirname(args.input[0]))
+    else:
+        input_folder_name = os.path.basename(os.path.dirname(args.input_file))
+        args.bam_files=[]
     MAXnVOCSNVs=0
     axis_list=[]
     bam_vcf_tsv_files_pairs_dict = {}
-
-
+  
 
     if args.bam_files:
         bam_vcf_tsv_files_pairs_dict = dict(zip(args.input,args.bam_files))
@@ -173,14 +185,14 @@ def main():
 
     if args.subplots_mode == "onerow":
         figsizedim = [1.8*n_heatmaps+(0.5*n_samples),1.7*n_heatmaps] #width and height in inches
-        fig, axis_list = plt.subplots(nrows=1, ncols=n_heatmaps, figsize=figsizedim, dpi=300)
+        fig, axis_list = plt.subplots(nrows=1, ncols=n_heatmaps, figsize=figsizedim, dpi=args.dpi)
     elif args.subplots_mode == "onecolumn": #column arrangement by default
         figsizedim = [1.8, 1.8*n_heatmaps+(0.5*n_samples)]  # width and height in inches
-        fig, axis_list = plt.subplots(ncols=1, nrows=n_heatmaps, figsize=figsizedim, dpi=300)
+        fig, axis_list = plt.subplots(ncols=1, nrows=n_heatmaps, figsize=figsizedim, dpi=args.dpi)
     elif args.subplots_mode == "oneplotperfile":
         figures_idx_map_dict={}; fig_counter=1
         for vocname in vocnames:
-            fig, axis = plt.subplots(ncols=1, nrows=1, dpi=300)
+            fig, axis = plt.subplots(ncols=1, nrows=1, dpi=args.dpi)
             figures_idx_map_dict[vocname] = fig_counter
             axis_list.append(axis)
             fig_counter=fig_counter+1
@@ -306,8 +318,6 @@ def main():
                 #do matches for every position candidate against reference metadata to identify valid mutation sets
                 for list_idx, pos in enumerate(multisub_pos_range_list):
 
-                    vcf_df_multisub_pos_idx = vcf_df_multisub_pos.loc[vcf_df_multisub_pos["POS"] == pos].index
-
                     match_df = vcf_df_multisub_pos[ (vcf_df_multisub_pos["REF"].isin([Ref_meta[list_idx]])) &
                                          (vcf_df_multisub_pos["ALT"].isin([Alt_meta[list_idx]])) ]
 
@@ -317,9 +327,6 @@ def main():
 
 
                 if all(multisub_pos_success_counter):
-                    #alt_freq_list = vcf_df.loc[multisub_pos_success_index,
-                    #                 vcf_df.columns[-1]].str.split(r':').str[7].astype(float).tolist()
-                    #print("Maximum alternative allele frequency for multi-substition is {}".format(max(alt_freq_list)))
 
                     vcf_df.loc[multisub_pos_success_index[0],["REF","ALT"]] = Ref_meta,Alt_meta
                     vcf_selected_idx[multisub_pos_success_index[0]] = True #want to include only the first position of multi-sub
@@ -431,11 +438,6 @@ def main():
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
                                      is_plot_annotate=args.annotate)
-
-
-
-
-
 
 
     #render subplots if this feature is selected
