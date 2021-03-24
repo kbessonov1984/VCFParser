@@ -36,7 +36,7 @@ def heatmap(data, row_labels, col_labels, ax=None, title="",
     im = ax.imshow(data, **kwargs)
 
     # Create colorbar legend
-    cbar = ax.figure.colorbar(im, ax=ax, aspect=10, fraction=0.10, drawedges=True, **cbar_kw)
+    cbar = ax.figure.colorbar(im, ax=ax,drawedges=True, **cbar_kw)
     cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom",size=3)
     cbar.ax.tick_params(labelsize=3)
 
@@ -204,17 +204,25 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",
     cmap.set_over('black')
     cmap.set_under('white')
 
+    ylen_pixels=axis.get_yaxis()._get_clipping_extent_bbox().ymax
+    if ylen_pixels < 500:
+        cbar_shrink = 1.0
+    else:
+        cbar_shrink = 0.65
+
     im, _ = heatmap(data, y, x,
                     ax=axis,
                     cmap=cmap,
                     norm=norm,
-                    axis_kw=dict(size=3),
+                    axis_kw=dict(size=2.5),
                     cbar_kw=dict(ticks=np.arange(0.00001,1.1,0.1),
                                  extend="both",
                                  orientation="vertical",
                                  spacing='proportional',
-                                 shrink=1),#, format=fmt),
+                                 shrink=cbar_shrink,
+                                 aspect=20, fraction=0.03),#, format=fmt),
                     cbarlabel="ALT_FREQ",
+
                     title=title)
 
 
