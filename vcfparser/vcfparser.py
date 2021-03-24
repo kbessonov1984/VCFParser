@@ -250,8 +250,6 @@ def main():
             voc_snvs_positions = VOCmeta_df["Position"].to_list()
             vcf_selected_idx = vcf_df["POS"].isin(voc_snvs_positions)
 
-
-
             # filter 2: by match to REF and ALT alleles in substitutions (SUB) metadata
             #           for SINGLE BASE substituions
             for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "SNP"),:].index:
@@ -278,8 +276,14 @@ def main():
             #filter Deletions separately just by position and deletion length
             #makes compatible with iVar and Virontus pipeline formats
             for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "DEL"), :].index:
-                metadata_pos_idx = VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]
-                if (int(VOCmeta_df[metadata_pos_idx]["Length"])+1 != len(vcf_df.loc[row_idx_vcf,"REF"])):
+                metadata_pos_idx = VOCmeta_df[VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]].index
+
+                if len(metadata_pos_idx) >= 2:
+                    raise Exception("Metadata should have unique deletion definitions."
+                                    "Offending value {} for VOC {}"
+                                    .format(VOCmeta_df.loc[metadata_pos_idx,'NucName+AAName'].to_list()[0],
+                                            vocname))
+                if (int(VOCmeta_df.loc[metadata_pos_idx,"Length"])+1 != len(vcf_df.loc[row_idx_vcf,"REF"])):
                     vcf_selected_idx[row_idx_vcf] = False
                     raise Warning("Deletion length at position {} did not match. Skipping this position ...".format(int(VOCmeta_df[metadata_pos_idx]["Position"])))
 
@@ -405,8 +409,13 @@ def main():
         #render plot
         VOCpangolineage = VOCmeta_df["PangoLineage"].unique()[0]
         if args.subplots_mode == "oneplotperfile":
+            if nVOCSNVs < 6:
+                ysizein = nVOCSNVs*0.135+2
+            else:
+                ysizein = nVOCSNVs * 0.135
+
             fig = plt.figure(figures_idx_map_dict[vocname]) #make figure object active for rendering
-            fig.set_size_inches(1.8+0.1*n_samples,0.135*nVOCSNVs)
+            fig.set_size_inches(1.8+0.1*n_samples,ysizein)
             VOCheatmapper.renderplot(VOCmeta_df,
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
