@@ -110,6 +110,33 @@ def check_decimal_range(arg):
 
     return value
 
+def parse_input_text_file(batch_file_path):
+
+
+    input_files_df = pd.read_csv(batch_file_path, sep="\t", names=["sample_name","variants_path","bam_path"])
+
+    if any(input_files_df["variants_path"].isna()):
+        raise Exception("Missing file path in the TSV/VCF files path column. Check {}".format(batch_file_path))
+
+    if any(input_files_df["variants_path"].duplicated()):
+        raise Exception("Duplicated file path in TSV/VCF files path column. Check {}".format(batch_file_path))
+
+    input_tsv_vcf_files_list = input_files_df["variants_path"].tolist()
+
+    if all(input_files_df["bam_path"].isna()):
+        input_bam_files_list = []
+    else:
+        input_bam_files_list = input_files_df["bam_path"].tolist()
+
+    samplename_dict = dict(zip(input_tsv_vcf_files_list, input_files_df["sample_name"]))
+
+
+
+    return input_tsv_vcf_files_list, \
+           input_bam_files_list, \
+           samplename_dict
+
+
 def main():
     parser = argparse.ArgumentParser("VCFparser.py parses iVar (https://andersen-lab.github.io/ivar/html/manualpage.html) "
                                      "TSV or VCF output files and filters out snvs linked to by the VOC\n")
@@ -160,14 +187,16 @@ def main():
         input_folder_name = os.path.basename(os.path.dirname(args.input[0]))
     else:
         input_folder_name = os.path.basename(os.path.dirname(args.input_file))
-        args.bam_files=[]
+        args.input, args.bam_files, samplename_dict = parse_input_text_file(batch_file_path=args.input_file)
+
+
     MAXnVOCSNVs=0
     axis_list=[]
     bam_vcf_tsv_files_pairs_dict = {}
-  
+
 
     if args.bam_files:
-        bam_vcf_tsv_files_pairs_dict = dict(zip(args.input,args.bam_files))
+        bam_vcf_tsv_files_pairs_dict = dict(zip(args.input,args.bam_files)) #missing tsv/bam files will be omitted
 
 
     VOCmeta_df_full = pd.read_csv(args.ref_meta, sep="\t")
@@ -227,7 +256,11 @@ def main():
 
         for sample_path in args.input:
             inputtype = get_input_type(sample_path)
-            input_file_name = os.path.splitext(os.path.basename(sample_path))[0] #get samplename without file extension
+
+            if args.input_file:
+                input_file_name = samplename_dict[sample_path]
+            else:
+                input_file_name = os.path.splitext(os.path.basename(sample_path))[0] #get samplename without file extension
             output_file_name = str(input_file_name.split(".vcf")[0]) + "." + vocname + ".trimmed.vcf"
 
             if inputtype == "vcf":
@@ -297,7 +330,7 @@ def main():
                                             vocname))
                 if (int(VOCmeta_df.loc[metadata_pos_idx,"Length"])+1 != len(vcf_df.loc[row_idx_vcf,"REF"])):
                     vcf_selected_idx[row_idx_vcf] = False
-                    raise Warning("Deletion length at position {} did not match. Skipping this position ...".format(int(VOCmeta_df[metadata_pos_idx]["Position"])))
+                    warnings.warn("Deletion length at position {} did not match. Skipping this position ...".format(int(VOCmeta_df.loc[metadata_pos_idx,"Position"])))
 
 
             # filter 3: Add here if present the multi-substitutions positions
