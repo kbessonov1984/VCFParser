@@ -3,7 +3,7 @@ import pandas as pd
 import argparse, warnings
 import os, re
 import matplotlib.pyplot as plt
-import openpyxl #to write Excel files
+
 
 import vcfparser.VOCheatmapper as VOCheatmapper
 import vcfparser.BAMutilities as BAMutilities
