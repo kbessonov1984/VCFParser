@@ -3,6 +3,7 @@ import pandas as pd
 import argparse, warnings
 import os, re
 import matplotlib.pyplot as plt
+import openpyxl #to write Excel files
 
 import vcfparser.VOCheatmapper as VOCheatmapper
 import vcfparser.BAMutilities as BAMutilities
@@ -189,6 +190,8 @@ def main():
         input_folder_name = os.path.basename(os.path.dirname(args.input_file))
         args.input, args.bam_files, samplename_dict = parse_input_text_file(batch_file_path=args.input_file)
 
+    heatmap_data_excel_writer = pd.ExcelWriter('heatmap_data2plot_{}.xlsx'.format(input_folder_name),
+                                               mode="w")
 
     MAXnVOCSNVs=0
     axis_list=[]
@@ -437,7 +440,12 @@ def main():
 
         #DEBUG
         VOCmeta_df.sort_values("Position",inplace=True)
-        VOCmeta_df.to_csv("heatmap_data2plot-{}.tsv".format(vocname),sep="\t")
+        VOCmeta_df.to_csv("heatmap_data2plot_{}.tsv".format(vocname),sep="\t")
+
+        VOCmeta_df.to_excel(heatmap_data_excel_writer,
+                            sheet_name=vocname,
+                            index=False)
+        heatmap_data_excel_writer.save()
         print("INFO: Data to plot written to heatmap_data2plot-{}.tsv".format(vocname))
 
         if output_file_name and not vcf_df_cleaned.empty:
@@ -449,8 +457,12 @@ def main():
         #render plot
         VOCpangolineage = VOCmeta_df["PangoLineage"].unique()[0]
         if args.subplots_mode == "oneplotperfile":
-            if nVOCSNVs < 6:
-                ysizein = nVOCSNVs*0.135+2
+            if nVOCSNVs < 2:
+                ysizein = nVOCSNVs * 0.135 + 1
+            elif nVOCSNVs < 5:
+                ysizein = nVOCSNVs*0.135+0.8
+            elif  nVOCSNVs < 8:
+                ysizein = nVOCSNVs * 0.135 + 0.4
             else:
                 ysizein = nVOCSNVs * 0.135
 
@@ -482,18 +494,10 @@ def main():
         plt.close()
         print("INFO: Heatmap rendered as {} at {}".format(heatmapfilename, os.getcwd()))
 
+    print("Complete data to plot Excel data writting to {}".format(heatmap_data_excel_writer.path))
+    heatmap_data_excel_writer.close()
     print("Done")
 
 if __name__ == '__main__':
     main()
-#TODO: bold S-gene linked SNVs in heatmap
-#TODO: for non-called snvs (i.e. with no-frequency) check for coverage and if coverage is absent annotate as NoCov or NC
-#TODO: Add colour range (0,0.1) while non-called SNVs will be white - Done
-#TODO: remove tsv extension from the sample names - Done
-#TODO: add optional frequencies text annotation key
-#TODO: make y-axis more squeezed (less space between snv names) - Done
 
-#TODO: sort the heatmap by position as data frame manipulation randomizes snvs (y-axis)
-#TODO: make color bar legend independent of y-axis length
-#TODO: input file with input tsv and bam file pairs and sample name
-#TODO: make deletions detections independent of the  actual deleted sequence. Only check for position and length only. Allow accept both viralrecon and iVar
