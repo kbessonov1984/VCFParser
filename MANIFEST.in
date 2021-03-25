@@ -1,1 +1,1 @@
-include vcfparser/cov_lineage_variants.tsv
+include vcfparser/data/cov_lineage_variants.tsv
