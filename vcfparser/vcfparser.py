@@ -70,7 +70,7 @@ def convert_tsv2vcf(tsvfilepath):
             REF = line[2]
             ALT = line[3]
 
-            var_type = 'SNP'
+            var_type = 'SUB'
             if ALT[0] == '+':
                 ALT = REF + ALT[1:]
                 var_type = 'INS'
@@ -117,10 +117,16 @@ def parse_input_text_file(batch_file_path):
     input_files_df = pd.read_csv(batch_file_path, sep="\t", names=["sample_name","variants_path","bam_path"])
 
     if any(input_files_df["variants_path"].isna()):
-        raise Exception("Missing file path in the TSV/VCF files path column. Check {}".format(batch_file_path))
+        raise Exception("Missing file path in the TSV/VCF files column. Check format of {}. Possible extra space or missing tab".format(batch_file_path))
 
     if any(input_files_df["variants_path"].duplicated()):
+        print(input_files_df.loc[input_files_df["variants_path"].duplicated(),"variant_path"])
         raise Exception("Duplicated file path in TSV/VCF files path column. Check {}".format(batch_file_path))
+
+    if any(input_files_df["sample_name"].duplicated()):
+        raise Exception("Duplicated sample name {} found. Check {}".format(
+            ",".join(input_files_df.loc[input_files_df["sample_name"].duplicated(), "sample_name"].to_list()),
+            batch_file_path))
 
     input_tsv_vcf_files_list = input_files_df["variants_path"].tolist()
 
@@ -137,6 +143,15 @@ def parse_input_text_file(batch_file_path):
            input_bam_files_list, \
            samplename_dict
 
+def classify_vcf_entries(vcf_dataframe):
+    vcf_dataframe["TYPE"]="SUB"
+
+    for row in vcf_dataframe[["REF","ALT"]].itertuples():
+        if len(row.REF) > len(row.ALT):
+            vcf_dataframe.loc[row.Index,"TYPE"] = "DEL"
+        elif len(row.REF) < len(row.ALT):
+            vcf_dataframe.loc[row.Index,"TYPE"] = "INS"
+    return  vcf_dataframe
 
 def main():
     parser = argparse.ArgumentParser("VCFparser.py parses iVar (https://andersen-lab.github.io/ivar/html/manualpage.html) "
@@ -184,10 +199,11 @@ def main():
     args = parser.parse_args()
     output_file_name=""; vcf_df_cleaned=pd.DataFrame()
 
+
     if args.input:
         input_folder_name = os.path.basename(os.path.dirname(args.input[0]))
     else:
-        input_folder_name = os.path.basename(os.path.dirname(args.input_file))
+        input_folder_name = os.path.basename(os.path.dirname(args.input_file))+"_on_"+os.path.split(args.input_file)[1]
         args.input, args.bam_files, samplename_dict = parse_input_text_file(batch_file_path=args.input_file)
 
     heatmap_data_excel_writer = pd.ExcelWriter('heatmap_data2plot_{}.xlsx'.format(input_folder_name),
@@ -242,6 +258,7 @@ def main():
 
     #plots are based on VOCs containing several samples (main VOC plot loop)
     for vocname in vocnames:
+        print("Starting heatmap building for VOC {} on {} samples".format(vocname, len(args.input)))
         read_coverages_2Darray = []
 
         #filter master metadata based on VOC name parameter
@@ -270,13 +287,14 @@ def main():
                 skip_line_n, vcf_source = find_vcf_headerline_source(sample_path)
                 print("VCF source {}\nSelected VOC:{}".format(vcf_source, vocname))
                 vcf_df = pd.read_csv(sample_path, sep="\t", skiprows=skip_line_n)
+                vcf_df = classify_vcf_entries(vcf_df)
             elif inputtype == "tsv":
                 vcf_df = convert_tsv2vcf(sample_path)
                 vcf_source = "TSV File"
             else:
-                raise Exception("Unsupported input type")
+                raise Exception("Unsupported input type for input {}".format(sample_path))
 
-            vcf_df.to_csv("tsv2vcf_temp.vcf", sep="\t",index=False)
+            # vcf_df.to_csv("tsv2vcf_temp.vcf", sep="\t", index=False)
 
             if vcf_df.empty:
                 raise  Exception("Empty input vcf_df DataFrame. Input parsing failed")
@@ -300,7 +318,8 @@ def main():
 
             # filter 2: by match to REF and ALT alleles in substitutions (SUB) metadata
             #           for SINGLE BASE substituions
-            for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "SNP"),:].index:
+
+            for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "SUB"),:].index:
 
                 metadata_pos_idx = VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]
 
@@ -376,11 +395,12 @@ def main():
             #DEBUG
             #print(VOCmetaNotFound[["VOC","Position","NucName"]])
             #print(input_file_name)
-
-            print("In sample {}, a total of {} SNVs were not found:\n {}".format(
-                                                   input_file_name,
-                                                   VOCmetaNotFound.shape[0],
-                                                   VOCmetaNotFound[["NucName", "AAName", "Position"]].to_string(index=False)))
+            if len(vcf_df_temp.index) != 0:
+                print("In sample {}, a total of {} SNVs were not found for VOC {}:\n {}".format(
+                    input_file_name,
+                    VOCmetaNotFound.shape[0], vocname,
+                    VOCmetaNotFound[["NucName", "AAName", "Position"]].to_string(index=False)
+                    ))
 
             if len(vcf_df_temp.index) == 0:
                 warnings.warn("Zero SNVs found in sample {} for {} VOC SNVs."
@@ -393,8 +413,7 @@ def main():
 
             #filter #4: Remove duplicated entries per position
             vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df_temp,VOCmeta_df)
-            if vcf_df_cleaned.shape[0] == 0:
-                vcf_df_cleaned.loc[0,"CHROM"] = "NO MATCHING SNVs"
+
 
 
 
@@ -406,13 +425,19 @@ def main():
             VOCmeta_df.input_file_name = 0
 
             if all(vcf_df_cleaned["POS"].isna()):
-                warnings.warn("NO MATCHING SNVs were found for VOC {}. Skipping this VOC ... ".format(vocname))
-                continue
+                warnings.warn("NO MATCHING SNVs were found for VOC {} and sample {}. "
+                              "Skipping ... ".format(vocname, input_file_name))
+
+                #need to check for coverage still!!!
+                #print(vcf_df_cleaned.index)
+                #print(vcf_df_cleaned)
+                #exit(1)
+                #continue
 
 
-
+            # frequency assignment
             for idx in vcf_df_cleaned.index:
-                if vcf_df_cleaned.loc[idx,"TYPE"]=="SNP":
+                if vcf_df_cleaned.loc[idx,"TYPE"]=="SUB":
                     match_query = 'Position == '+ str(vcf_df_cleaned.loc[idx,"POS"])+\
                                   ' & Ref == \"'+vcf_df_cleaned.loc[idx,"REF"] +'\"'+\
                                   ' & Alt == \"'+vcf_df_cleaned.loc[idx,"ALT"]+'\"''                                        '
@@ -424,23 +449,22 @@ def main():
                     VOCmeta_df.loc[VOCmeta_sel_index,input_file_name] = vcf_df_cleaned.loc[idx,"ALT_FREQ"]
 
 
-
-
             #filter based on set threshold if set by the user
             if args.min_snv_freq_threshold:
                 VOCmeta_df.loc[VOCmeta_df[input_file_name] <= args.min_snv_freq_threshold, input_file_name] = 0
 
             #check positions for coverage
             if bam_vcf_tsv_files_pairs_dict:
-                read_coverages_2Darray.append(BAMutilities.get_ref_coverage_array(bam_vcf_tsv_files_pairs_dict[sample_path],
-                                                             query_positions=VOCmeta_df["Position"]))
+                read_coverages_2Darray.append(BAMutilities.get_ref_coverage_array(
+                    bam_vcf_tsv_files_pairs_dict[sample_path],
+                    query_positions=VOCmeta_df["Position"]))
 
 
 
 
         #DEBUG
         VOCmeta_df.sort_values("Position",inplace=True)
-        VOCmeta_df.to_csv("heatmap_data2plot_{}.tsv".format(vocname),sep="\t")
+        #VOCmeta_df.to_csv("heatmap_data2plot_{}.tsv".format(vocname),sep="\t")
 
         VOCmeta_df.to_excel(heatmap_data_excel_writer,
                             sheet_name=vocname,
@@ -448,8 +472,11 @@ def main():
         heatmap_data_excel_writer.save()
         print("INFO: Data to plot written to heatmap_data2plot-{}.tsv".format(vocname))
 
-        if output_file_name and not vcf_df_cleaned.empty:
-            print("INFO: Writing out {} snvs to VCF".format(vcf_df_cleaned.shape[0]))
+        if vcf_df_cleaned.shape[0] == 0:
+            vcf_df_cleaned.loc[0, "CHROM"] = "NO MATCHING SNVs"
+
+        if output_file_name:
+            print("INFO: Writing out {} SNVs to VCF".format(vcf_df_cleaned.shape[0]))
             vcf_df_cleaned.to_csv(output_file_name,sep="\t",index=False, mode="w")
             print("INFO: Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
 

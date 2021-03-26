@@ -135,6 +135,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             value =  valfmt(data[i, j], None)
 
             if is_annotate and covdata:
+
                 if covdata[j][i] == 0:
                     value = "NC"
                 elif float(value) == 0:
