@@ -143,14 +143,20 @@ def parse_input_text_file(batch_file_path):
            input_bam_files_list, \
            samplename_dict
 
-def classify_vcf_entries(vcf_dataframe):
-    vcf_dataframe["TYPE"]="SUB"
+def classify_vcf_entries(vcf_dataframe, positions):
+    columns = vcf_dataframe.columns.tolist()
+    insert_col = [i[0] for i in enumerate(columns) if i[1] == "QUAL"][0]
+    vcf_dataframe.insert(insert_col+1,"TYPE", "-")
 
-    for row in vcf_dataframe[["REF","ALT"]].itertuples():
-        if len(row.REF) > len(row.ALT):
+    for row in vcf_dataframe.loc[vcf_dataframe["POS"].isin(positions),
+                                 ["REF","ALT"]].itertuples():
+        if len(row.REF) == len(row.ALT):
+            vcf_dataframe.loc[row.Index, "TYPE"] = "SUB"
+        elif len(row.REF) > len(row.ALT):
             vcf_dataframe.loc[row.Index,"TYPE"] = "DEL"
         elif len(row.REF) < len(row.ALT):
             vcf_dataframe.loc[row.Index,"TYPE"] = "INS"
+
     return  vcf_dataframe
 
 def main():
@@ -277,6 +283,7 @@ def main():
         for sample_path in args.input:
             inputtype = get_input_type(sample_path)
 
+
             if args.input_file:
                 input_file_name = samplename_dict[sample_path]
             else:
@@ -287,14 +294,18 @@ def main():
                 skip_line_n, vcf_source = find_vcf_headerline_source(sample_path)
                 print("VCF source {}\nSelected VOC:{}".format(vcf_source, vocname))
                 vcf_df = pd.read_csv(sample_path, sep="\t", skiprows=skip_line_n)
-                vcf_df = classify_vcf_entries(vcf_df)
+                print("INFO: Classifying each SNV in VCF {}".format(sample_path))
+                #adding +1 extra positions in case it is vcf from ncov-tools and +1 position error in deletions reporting
+                positions = VOCmeta_df["Position"].to_list()+\
+                    [i+1 for i in VOCmeta_df["Position"].to_list()]
+                vcf_df = classify_vcf_entries(vcf_df,positions)
             elif inputtype == "tsv":
                 vcf_df = convert_tsv2vcf(sample_path)
                 vcf_source = "TSV File"
             else:
                 raise Exception("Unsupported input type for input {}".format(sample_path))
 
-            # vcf_df.to_csv("tsv2vcf_temp.vcf", sep="\t", index=False)
+
 
             if vcf_df.empty:
                 raise  Exception("Empty input vcf_df DataFrame. Input parsing failed")
@@ -305,7 +316,9 @@ def main():
                                                                                                args.ref_meta))
 
             if vcf_source == 'iVar':
-                VOCmeta_df.loc[VOCmeta_df["Type"] == "Del", "Position"] += 1
+                vcf_df.loc[vcf_df["TYPE"] == "DEL", "POS"] -= 1
+
+            #vcf_df.to_csv("tsv2vcf_temp.vcf", sep="\t", index=False)
 
 
             if not type(vcf_df.loc[0,"POS"]) == type(VOCmeta_df.loc[VOCmeta_df.index[0],"Position"]):
@@ -315,6 +328,7 @@ def main():
             # filter 1: by posistion
             voc_snvs_positions = VOCmeta_df["Position"].to_list()
             vcf_selected_idx = vcf_df["POS"].isin(voc_snvs_positions)
+
 
             # filter 2: by match to REF and ALT alleles in substitutions (SUB) metadata
             #           for SINGLE BASE substituions
@@ -388,7 +402,6 @@ def main():
 
 
 
-
             vcf_df_temp = vcf_df[vcf_selected_idx].copy()
             VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df_temp["POS"])]
 
@@ -428,11 +441,7 @@ def main():
                 warnings.warn("NO MATCHING SNVs were found for VOC {} and sample {}. "
                               "Skipping ... ".format(vocname, input_file_name))
 
-                #need to check for coverage still!!!
-                #print(vcf_df_cleaned.index)
-                #print(vcf_df_cleaned)
-                #exit(1)
-                #continue
+
 
 
             # frequency assignment
@@ -521,7 +530,7 @@ def main():
         plt.close()
         print("INFO: Heatmap rendered as {} at {}".format(heatmapfilename, os.getcwd()))
 
-    print("Complete data to plot Excel data writting to {}".format(heatmap_data_excel_writer.path))
+    print("Data to plot written to Excel file at {}".format(heatmap_data_excel_writer.path))
     heatmap_data_excel_writer.close()
     print("Done")
 
