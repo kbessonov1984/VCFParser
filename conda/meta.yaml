@@ -1,0 +1,33 @@
+{% set version = "0.0.1" %}
+
+package:
+  name: vcfparser
+  version: {{ version }}
+
+build:
+  number: 0
+  noarch: python
+  script: python -m pip install --no-deps --ignore-installed .
+
+source:k
+  git_url: https://github.com/kbessonov1984/VCFParser.git
+  git_tag: master 
+requirements:
+  host:
+    - python >=3.7
+    - pip
+  run:
+    - python >=3.7,<4
+    - numpy >=1.11.1,<2
+    - pandas >=0.22.0
+    - matplotlib
+    - pysam
+    - openpyxl
+
+test:
+  commands:
+    - vcfparser -h
+about:
+  home: https://github.com/kbessonov1984/
+  license: Apache License, Version 2.0
+  summary: 'VCFParser to parser iVar variants output results and generate beautiful heatmap plots of VOC defined mutations for each sample'
