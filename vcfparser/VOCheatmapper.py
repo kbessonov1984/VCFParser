@@ -163,7 +163,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
 def renderplot(data=pd.DataFrame(),debug=False, title="",
                is_plot_annotate = False,
-               axis=None, read_coverages_2Darray=list()):
+               axis=None, read_coverages_2Darray=list(), axis_labels_font_size=2.5):
 
     if debug: #DEBUG read in input dataframe with x and y labels for testing only purposes
         data = pd.read_csv('test/SNVsamplesummary.tsv', sep="\t")
@@ -175,18 +175,6 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",
         data = data.iloc[:, column_number:]
 
 
-
-
-    #data = np.array(
-    #    [[np.array(i, dtype=np.float64) for i in j] for j in summarydf.values],
-    #    dtype=np.float16,
-    #)
-    #print(summarydf, summarydf.index, summarydf.columns);exit()
-
-
-
-    #data = np.random.random_sample((6, 6))
-    #data[0,0]=1; data[5,5]=0; data[0,1]=0.5
 
 
     #y = ["Position {}".format(i) for i in range(1, data.shape[0]+1, 1)]
@@ -215,7 +203,7 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",
                     ax=axis,
                     cmap=cmap,
                     norm=norm,
-                    axis_kw=dict(size=2.5),
+                    axis_kw=dict(size=axis_labels_font_size),
                     cbar_kw=dict(ticks=np.arange(0.00001,1.1,0.1),
                                  extend="both",
                                  orientation="vertical",

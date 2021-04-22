@@ -200,6 +200,8 @@ def main():
 
     parser.add_argument('--dpi', required=False, type=int, default=400, metavar="400",
                         help="DPI value for the heatmap rendering. Default value: 400")
+    parser.add_argument('--font_size', required=False, type=int, default=2.5, metavar="2.5",
+                        help="Labels font size for both axis: 2.5")
 
 
     args = parser.parse_args()
@@ -369,7 +371,7 @@ def main():
                     warnings.warn("Deletion length at position {} did not match. Skipping this position ...".format(int(VOCmeta_df.loc[metadata_pos_idx,"Position"])))
 
 
-            # filter 3: Add here if present the multi-substitutions positions
+            # filter 3: Add here the MULTISUBSTITUTION positions (if present)
             VOCmeta_df_multisub_idx = VOCmeta_df.loc[(VOCmeta_df["Type"] == "Sub") & (VOCmeta_df["Length"] > 1),"Position"].index
             #multisub_positions = VOCmeta_df.loc[VOCmeta_df_multisub_idx,"Position"].to_list()
 
@@ -406,6 +408,7 @@ def main():
             VOCmetaNotFound = VOCmeta_df[~VOCmeta_df["Position"].isin(vcf_df_temp["POS"])]
 
             #DEBUG
+            vcf_df_temp.to_csv("vcf_df_debug_{}_VOC-{}.txt".format(input_file_name, vocname),sep="\t")
             #print(VOCmetaNotFound[["VOC","Position","NucName"]])
             #print(input_file_name)
             if len(vcf_df_temp.index) != 0:
@@ -508,7 +511,8 @@ def main():
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
                                      is_plot_annotate=args.annotate,
-                                     read_coverages_2Darray=read_coverages_2Darray)
+                                     read_coverages_2Darray=read_coverages_2Darray,
+                                     axis_labels_font_size=args.font_size)
             heatmapfilename = "heatmap-overall-{}-{}.png".format(input_folder_name, vocname)
             plt.tight_layout()
             plt.savefig(heatmapfilename)
@@ -518,7 +522,8 @@ def main():
             VOCheatmapper.renderplot(VOCmeta_df,
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
-                                     is_plot_annotate=args.annotate)
+                                     is_plot_annotate=args.annotate,
+                                     axis_labels_font_size=args.font_size)
 
 
     #render subplots if this feature is selected

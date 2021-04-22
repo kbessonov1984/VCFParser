@@ -9,15 +9,16 @@ build:
   noarch: python
   script: python -m pip install --no-deps --ignore-installed .
 
-source:k
+source:
   git_url: https://github.com/kbessonov1984/VCFParser.git
   git_tag: master 
+
 requirements:
   host:
     - python >=3.7
     - pip
   run:
-    - python >=3.7,<4
+    - python >=3,<4
     - numpy >=1.11.1,<2
     - pandas >=0.22.0
     - matplotlib
