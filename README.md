@@ -34,6 +34,8 @@ optional arguments:
                         Optionally provide a list of corresponding bam files
                         in THE SAME ORDER asfiles provided for the -i
                         parameter
+  -f INPUT_FILE, --input_file INPUT_FILE
+                        Input file with TSV/VCF and BAM file paths for batch input
   -voc VOC_NAMES, --voc_names VOC_NAMES
                         List of Variants of Concern names (e.g. UK, SA,
                         Brazil, Nigeria) or keyword all
@@ -54,4 +56,6 @@ optional arguments:
                         Set minimum SNV frequency threshold to display
                         (default: 0)
   --annotate            Annotate heatmap with SNV frequency values
+  --dpi 400             DPI value for the heatmap rendering. Default value:400
+  --font_size 2.5       Labels font size for both axis: 2.5
 ```
