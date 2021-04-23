@@ -359,13 +359,20 @@ def main():
             #filter Deletions separately just by position and deletion length
             #makes compatible with iVar and Virontus pipeline formats
             for row_idx_vcf in vcf_df.loc[vcf_selected_idx & (vcf_df["TYPE"] == "DEL"), :].index:
-                metadata_pos_idx = VOCmeta_df[VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]].index
+                metadata_pos_idx = VOCmeta_df[ (VOCmeta_df["Position"] == vcf_df.loc[row_idx_vcf, "POS"]) & \
+                                               (VOCmeta_df["Type"] == "Del") & \
+                                               (VOCmeta_df["Ref"] == vcf_df.loc[row_idx_vcf,"REF"]) & \
+                                               (VOCmeta_df["Alt"] == vcf_df.loc[row_idx_vcf, "ALT"]) ].index
+
 
                 if len(metadata_pos_idx) >= 2:
                     raise Exception("Metadata should have unique deletion definitions."
                                     "Offending value {} for VOC {}"
                                     .format(VOCmeta_df.loc[metadata_pos_idx,'NucName+AAName'].to_list()[0],
                                             vocname))
+                elif len(metadata_pos_idx) == 0:
+                    continue
+
                 if (int(VOCmeta_df.loc[metadata_pos_idx,"Length"])+1 != len(vcf_df.loc[row_idx_vcf,"REF"])):
                     vcf_selected_idx[row_idx_vcf] = False
                     warnings.warn("Deletion length at position {} did not match. Skipping this position ...".format(int(VOCmeta_df.loc[metadata_pos_idx,"Position"])))
@@ -497,13 +504,13 @@ def main():
         VOCpangolineage = VOCmeta_df["PangoLineage"].unique()[0]
         if args.subplots_mode == "oneplotperfile":
             if nVOCSNVs < 2:
-                ysizein = nVOCSNVs * 0.135 + 1
+                ysizein = nVOCSNVs * 0.160 + 1
             elif nVOCSNVs < 5:
-                ysizein = nVOCSNVs*0.135+0.8
+                ysizein = nVOCSNVs*0.160+0.8
             elif  nVOCSNVs < 8:
-                ysizein = nVOCSNVs * 0.135 + 0.4
+                ysizein = nVOCSNVs * 0.160 + 0.4
             else:
-                ysizein = nVOCSNVs * 0.135
+                ysizein = nVOCSNVs * 0.160
 
             fig = plt.figure(figures_idx_map_dict[vocname]) #make figure object active for rendering
             fig.set_size_inches(1.8+0.1*n_samples,ysizein)

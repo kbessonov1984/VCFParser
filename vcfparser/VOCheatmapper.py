@@ -45,7 +45,7 @@ def heatmap(data, row_labels, col_labels, ax=None, title="",
     ax.set_yticks(np.arange(data.shape[0]))
     # ... and label them with the respective list entries.
     ax.set_xticklabels(col_labels, **axis_kw)
-    ax.set_yticklabels(row_labels, **axis_kw)
+    ax.set_yticklabels(row_labels, fontdict={'fontweight': "bold"}, **axis_kw)
 
     # Let the horizontal axes labeling appear on top.
     ax.tick_params(top=True, bottom=False,
@@ -217,7 +217,7 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",
 
     #if is_text_annotate:
     annotate_heatmap(im, valfmt="{x:.3f}",
-                         size=1.8,  textcolors=["red"],
+                         size=1.9,  textcolors=["green"], weight='bold',
                          covdata=read_coverages_2Darray,
                          is_annotate = is_plot_annotate
                     )
