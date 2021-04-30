@@ -163,7 +163,9 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
 def renderplot(data=pd.DataFrame(),debug=False, title="",
                is_plot_annotate = False,
-               axis=None, read_coverages_2Darray=list(), axis_labels_font_size=2.5):
+               axis=None, read_coverages_2Darray=list(),
+               axis_labels_font_size=2.5,
+               annotate_text_color="coral"):
 
     if debug: #DEBUG read in input dataframe with x and y labels for testing only purposes
         data = pd.read_csv('test/SNVsamplesummary.tsv', sep="\t")
@@ -217,7 +219,7 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",
 
     #if is_text_annotate:
     annotate_heatmap(im, valfmt="{x:.3f}",
-                         size=1.9,  textcolors=["coral"], weight='bold',
+                         size=1.9,  textcolors=[annotate_text_color], weight='bold',
                          covdata=read_coverages_2Darray,
                          is_annotate = is_plot_annotate
                     )

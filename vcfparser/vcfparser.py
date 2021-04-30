@@ -202,6 +202,8 @@ def main():
                         help="DPI value for the heatmap rendering. Default value: 400")
     parser.add_argument('--font_size', required=False, type=int, default=2.5, metavar="2.5",
                         help="Labels font size for both axis: 2.5")
+    parser.add_argument('--annotate_text_color', required=False, type=str, default="coral", metavar="coral",
+                        help="Annotate text color (freq. values)")
 
 
     args = parser.parse_args()
@@ -327,10 +329,14 @@ def main():
                 raise Exception("vcf_df[\"POS\"] and VOCmeta_df[\"Position\"] types do not match. Check var type conversions")
 
 
-            # filter 1: by posistion
-            voc_snvs_positions = VOCmeta_df["Position"].to_list()
-            vcf_selected_idx = vcf_df["POS"].isin(voc_snvs_positions)
+            # filter 1: by posistion AND mutation Type
+            vcf_selected_idx = vcf_df["POS"] == 0 #init the bool index of size input
+            vcf_selected_rows=[]
+            for idx in VOCmeta_df.index:
+                vcf_selected_rows = vcf_selected_rows+vcf_df.query('POS == '+ str(VOCmeta_df.loc[idx,"Position"]) +
+                                                ' & TYPE == \"'+ VOCmeta_df.loc[idx,"Type"].upper()+'\"').index.to_list()
 
+            vcf_selected_idx[vcf_selected_rows] = True
 
             # filter 2: by match to REF and ALT alleles in substitutions (SUB) metadata
             #           for SINGLE BASE substituions
@@ -519,7 +525,8 @@ def main():
                                      axis=axis_dict[vocname],
                                      is_plot_annotate=args.annotate,
                                      read_coverages_2Darray=read_coverages_2Darray,
-                                     axis_labels_font_size=args.font_size)
+                                     axis_labels_font_size=args.font_size,
+                                     annotate_text_color=args.annotate_text_color)
             heatmapfilename = "heatmap-overall-{}-{}.png".format(input_folder_name, vocname)
             plt.tight_layout()
             plt.savefig(heatmapfilename)
@@ -530,7 +537,8 @@ def main():
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
                                      is_plot_annotate=args.annotate,
-                                     axis_labels_font_size=args.font_size)
+                                     axis_labels_font_size=args.font_size,
+                                     annotate_text_color=args.annotate_text_color)
 
 
     #render subplots if this feature is selected
