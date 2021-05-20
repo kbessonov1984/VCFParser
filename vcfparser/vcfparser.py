@@ -188,13 +188,17 @@ def main():
     parser.add_argument('--key_snvs_only', required=False, action='store_true',
                         help="Check VCF for only the key (S-gene associated)  snvs linked to a VOC")
     parser.add_argument('--stat_filter_snvs', required=False, action='store_true',
-                        help="Filter snvs based on statistical significance (i.e. QC PASS flag)")
+                        help="Filter snvs based on statistical significance (i.e. QC PASS/FAIL flags)")
+
+
     parser.add_argument('--subplots_mode',  default="oneplotperfile",
                         required=True, help="How to plot multiple plots (onerow, onecolumn, oneplotperfile)"
                         )
     parser.add_argument('--min_snv_freq_threshold', default=0, type=check_decimal_range, metavar="[0-1]",
                         required=False, help="Set minimum SNV frequency threshold to display (default: 0)"
                         )
+    parser.add_argument('--min_depth_coverage', type=int, required=False, metavar="[0-Inf]", default=0,
+                        help="Filter snvs based on min depth coverage (default:0 - no filtering)")
     parser.add_argument('--annotate', required=False, action='store_true',
                         help="Annotate heatmap with SNV frequency values")
 
@@ -446,16 +450,33 @@ def main():
 
 
 
-            # ASSIGMENT OF FREQ VALUES
+            # ASSIGMENT OF ALT FREQ VALUES
             # add extra column for to record sample SNV ALT_FREQ for heatmap
             VOCmeta_df[input_file_name] = [0] * nVOCSNVs
 
+            if len(vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').to_list()[0]) < 8:
+                warnings.warn("Sample {} might be of wrong format and lack ALT allele frequency values. Please check manually".format(sample_path))
+
+
+            ALT_DP = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[4].astype(float).tolist()
             vcf_df_cleaned["ALT_FREQ"] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
-            VOCmeta_df.input_file_name = 0
+            vcf_df_cleaned["ALT_DP"] = ALT_DP #number of reads supporting ALT allele (depth)
+
+
+            #filter based on min coverage
+            if args.min_depth_coverage:
+                vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_DP"] >= args.min_depth_coverage]
+
+            if args.min_snv_freq_threshold:
+                vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_FREQ"] >= args.min_snv_freq_threshold]
+            
+            VOCmeta_df.input_file_name = 0 #init metadata for heatmap
+
 
             if all(vcf_df_cleaned["POS"].isna()):
-                warnings.warn("NO MATCHING SNVs were found for VOC {} and sample {}. "
-                              "Skipping ... ".format(vocname, input_file_name))
+                warnings.warn("NO MATCHING SNVs were found for VOC {} sample {}. "
+                              "SNV frequency and read depth thresholds might be too stringent or wrong format"
+                              "Skipping ... ".format(vocname, sample_path))
 
 
 
@@ -474,9 +495,10 @@ def main():
                     VOCmeta_df.loc[VOCmeta_sel_index,input_file_name] = vcf_df_cleaned.loc[idx,"ALT_FREQ"]
 
 
-            #filter based on set threshold if set by the user
-            if args.min_snv_freq_threshold:
-                VOCmeta_df.loc[VOCmeta_df[input_file_name] <= args.min_snv_freq_threshold, input_file_name] = 0
+            #filter based on alt allele frequency threshold optionally set by the user (0-1)
+            #if args.min_snv_freq_threshold:
+            #    VOCmeta_df.loc[VOCmeta_df[input_file_name] <= args.min_snv_freq_threshold, input_file_name] = 0
+
 
             #check positions for coverage
             if bam_vcf_tsv_files_pairs_dict:
@@ -495,7 +517,7 @@ def main():
                             sheet_name=vocname,
                             index=False)
         heatmap_data_excel_writer.save()
-        print("INFO: Data to plot written to heatmap_data2plot-{}.tsv".format(vocname))
+        print("INFO: Data to plot written to heatmap_data2plot-{}.xlsx".format(vocname))
 
         if vcf_df_cleaned.shape[0] == 0:
             vcf_df_cleaned.loc[0, "CHROM"] = "NO MATCHING SNVs"
