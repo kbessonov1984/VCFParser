@@ -198,7 +198,9 @@ def main():
                         required=False, help="Set minimum SNV frequency threshold to display (default: 0)"
                         )
     parser.add_argument('--min_depth_coverage', type=int, required=False, metavar="[0-Inf]", default=0,
-                        help="Filter snvs based on min depth coverage (default:0 - no filtering)")
+                        help="Filter snvs based on min depth coverage (default:0 = no filtering)")
+    parser.add_argument('--min_quality', type=int, required=False, metavar="[0-Inf]", default=0,
+                        help="Filter snvs based on min PHRED sequencing quality (default:0  = no filtering)")
     parser.add_argument('--annotate', required=False, action='store_true',
                         help="Annotate heatmap with SNV frequency values")
 
@@ -452,33 +454,38 @@ def main():
 
             # ASSIGMENT OF ALT FREQ VALUES
             # add extra column for to record sample SNV ALT_FREQ for heatmap
-            VOCmeta_df[input_file_name] = [0] * nVOCSNVs
+            VOCmeta_df[input_file_name] = [0] * nVOCSNVs #init meatadata for input sample
+            if vcf_df_cleaned.shape[0] == 0:
+                warnings.warn("NO MATCHING SNVs were found for VOC {} sample {}. "
+                              "SNV frequency and read depth thresholds might be too stringent or wrong format"
+                              "".format(vocname, sample_path))
+                continue
+
 
             if len(vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').to_list()[0]) < 8:
                 warnings.warn("Sample {} might be of wrong format and lack ALT allele frequency values. Please check manually".format(sample_path))
 
 
             ALT_DP = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[4].astype(float).tolist()
+            ALT_QUAL = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[6].astype(float).tolist()
             vcf_df_cleaned["ALT_FREQ"] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
             vcf_df_cleaned["ALT_DP"] = ALT_DP #number of reads supporting ALT allele (depth)
+            vcf_df_cleaned["ALT_QUAL"] = ALT_QUAL   # PHRED quality scores for each SNV
 
-
-            #filter based on min coverage
+            #filter based on min coverage/phred score / coverage depth
             if args.min_depth_coverage:
                 vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_DP"] >= args.min_depth_coverage]
 
             if args.min_snv_freq_threshold:
                 vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_FREQ"] >= args.min_snv_freq_threshold]
+            if args.min_quality:
+                vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_QUAL"] >= args.min_quality]
             
-            VOCmeta_df.input_file_name = 0 #init metadata for heatmap
-
-
-            if all(vcf_df_cleaned["POS"].isna()):
+            if vcf_df_cleaned.shape[0] == 0:
                 warnings.warn("NO MATCHING SNVs were found for VOC {} sample {}. "
                               "SNV frequency and read depth thresholds might be too stringent or wrong format"
-                              "Skipping ... ".format(vocname, sample_path))
-
-
+                              "".format(vocname, sample_path))
+                continue
 
 
             # frequency assignment
