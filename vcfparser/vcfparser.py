@@ -293,7 +293,6 @@ def main():
         for sample_path in args.input:
             inputtype = get_input_type(sample_path)
 
-
             if args.input_file:
                 input_file_name = samplename_dict[sample_path]
             else:
@@ -449,7 +448,12 @@ def main():
             #filter #4: Remove duplicated entries per position
             vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df_temp,VOCmeta_df)
 
-
+            # check positions for coverage if BAM file is provided
+            if bam_vcf_tsv_files_pairs_dict:
+                coverages_pos_list = BAMutilities.get_ref_coverage_array(
+                    bam_vcf_tsv_files_pairs_dict[sample_path],
+                    query_positions=VOCmeta_df["Position"])
+                read_coverages_2Darray.append(coverages_pos_list)
 
 
             # ASSIGMENT OF ALT FREQ VALUES
@@ -480,7 +484,7 @@ def main():
                 vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_FREQ"] >= args.min_snv_freq_threshold]
             if args.min_quality:
                 vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_QUAL"] >= args.min_quality]
-            
+
             if vcf_df_cleaned.shape[0] == 0:
                 warnings.warn("NO MATCHING SNVs were found for VOC {} sample {}. "
                               "SNV frequency and read depth thresholds might be too stringent or wrong format"
@@ -502,16 +506,9 @@ def main():
                     VOCmeta_df.loc[VOCmeta_sel_index,input_file_name] = vcf_df_cleaned.loc[idx,"ALT_FREQ"]
 
 
-            #filter based on alt allele frequency threshold optionally set by the user (0-1)
-            #if args.min_snv_freq_threshold:
-            #    VOCmeta_df.loc[VOCmeta_df[input_file_name] <= args.min_snv_freq_threshold, input_file_name] = 0
 
 
-            #check positions for coverage
-            if bam_vcf_tsv_files_pairs_dict:
-                read_coverages_2Darray.append(BAMutilities.get_ref_coverage_array(
-                    bam_vcf_tsv_files_pairs_dict[sample_path],
-                    query_positions=VOCmeta_df["Position"]))
+
 
 
 
@@ -524,7 +521,6 @@ def main():
                             sheet_name=vocname,
                             index=False)
         heatmap_data_excel_writer.save()
-        print("INFO: Data to plot written to heatmap_data2plot-{}.xlsx".format(vocname))
 
         if vcf_df_cleaned.shape[0] == 0:
             vcf_df_cleaned.loc[0, "CHROM"] = "NO MATCHING SNVs"

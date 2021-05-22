@@ -70,7 +70,7 @@ def heatmap(data, row_labels, col_labels, ax=None, title="",
 def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
                      textcolors=("black", "white"),
                      threshold=None,
-                     covdata=[],
+                     covdata=None,
                      is_annotate = False,
                      **textkw):
     """
@@ -135,7 +135,6 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             value =  valfmt(data[i, j], None)
 
             if is_annotate and covdata:
-
                 if covdata[j][i] == 0:
                     value = "NC"
                 elif float(value) == 0:
