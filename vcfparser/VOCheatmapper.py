@@ -71,7 +71,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
                      textcolors=("black", "white"),
                      threshold=None,
                      covdata=None,
-                     is_annotate = False,
+                     min_depth=0,
                      **textkw):
     """
     A function to annotate a heatmap.
@@ -134,20 +134,17 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
             value =  valfmt(data[i, j], None)
 
-            if is_annotate and covdata:
+            if covdata:
                 if covdata[j][i] == 0:
                     value = "NC"
+                elif covdata[j][i] < min_depth:
+                    value = "LC"
                 elif float(value) == 0:
                     value = ""
-            elif is_annotate:
+            else:
                 if float(value) == 0:
                     value = ""
-            elif covdata:
-                value = ""
-                if covdata[j][i] == 0:
-                    value = "NC"
-            else:
-                value=""
+
 
 
             text = im.axes.text(j, i, value, **kw)
@@ -162,6 +159,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
 def renderplot(data=pd.DataFrame(),debug=False, title="",
                is_plot_annotate = False,
+               min_depth = 0,
                axis=None, read_coverages_2Darray=list(),
                axis_labels_font_size=2.5,
                annotate_text_color="coral"):
@@ -217,10 +215,11 @@ def renderplot(data=pd.DataFrame(),debug=False, title="",
 
 
     #if is_text_annotate:
-    annotate_heatmap(im, valfmt="{x:.3f}",
+    if is_plot_annotate:
+        annotate_heatmap(im, valfmt="{x:.3f}",
                          size=1.9,  textcolors=[annotate_text_color], weight='bold',
                          covdata=read_coverages_2Darray,
-                         is_annotate = is_plot_annotate
+                         min_depth=min_depth
                     )
 
 

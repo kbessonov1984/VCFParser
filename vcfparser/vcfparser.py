@@ -448,7 +448,7 @@ def main():
             #filter #4: Remove duplicated entries per position
             vcf_df_cleaned = remove_duplicated_vcf_snvs(vcf_df_temp,VOCmeta_df)
 
-            # check positions for coverage if BAM file is provided
+            # CHECK positions for coverage if BAM file is provided
             if bam_vcf_tsv_files_pairs_dict:
                 coverages_pos_list = BAMutilities.get_ref_coverage_array(
                     bam_vcf_tsv_files_pairs_dict[sample_path],
@@ -507,12 +507,6 @@ def main():
 
 
 
-
-
-
-
-
-
         #DEBUG
         VOCmeta_df.sort_values("Position",inplace=True)
         #VOCmeta_df.to_csv("heatmap_data2plot_{}.tsv".format(vocname),sep="\t")
@@ -531,7 +525,12 @@ def main():
             print("INFO: Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
 
 
-        #render plot
+        print(args)
+        if args.annotate and args.bam_files:
+            if len(read_coverages_2Darray) != n_samples:
+                raise Exception("The annotation coverage information array is for {} samples but {} were input".
+                                format(len(read_coverages_2Darray),n_samples))
+        # render plot
         VOCpangolineage = VOCmeta_df["PangoLineage"].unique()[0]
         if args.subplots_mode == "oneplotperfile":
             if nVOCSNVs < 2:
@@ -545,10 +544,12 @@ def main():
 
             fig = plt.figure(figures_idx_map_dict[vocname]) #make figure object active for rendering
             fig.set_size_inches(1.8+0.1*n_samples,ysizein)
+
             VOCheatmapper.renderplot(VOCmeta_df,
                                      title='{} variant ({}) SNVs'.format(vocname, VOCpangolineage),
                                      axis=axis_dict[vocname],
                                      is_plot_annotate=args.annotate,
+                                     min_depth = args.min_depth_coverage,
                                      read_coverages_2Darray=read_coverages_2Darray,
                                      axis_labels_font_size=args.font_size,
                                      annotate_text_color=args.annotate_text_color)
