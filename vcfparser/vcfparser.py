@@ -516,10 +516,7 @@ def main():
             vcf_df_cleaned["ALT_DP"] = ALT_DP #number of reads supporting ALT allele (depth)
             vcf_df_cleaned["ALT_QUAL"] = ALT_QUAL   # PHRED quality scores for each SNV
 
-            #filter based on min coverage/phred score / coverage depth
-            if args.min_depth_coverage:
-                vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_DP"] >= args.min_depth_coverage]
-
+            #filter based on min phred score / coverage depth (coverage depth filter is just for heatmap rendering)
             if args.min_snv_freq_threshold:
                 vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_FREQ"] >= args.min_snv_freq_threshold]
             if args.min_quality:
@@ -558,9 +555,11 @@ def main():
         if vcf_df_cleaned.shape[0] == 0:
             vcf_df_cleaned.loc[0, "CHROM"] = "NO MATCHING SNVs"
 
+
         if output_file_name:
             print("INFO: Writing out {} SNVs to VCF".format(vcf_df_cleaned.shape[0]))
-            vcf_df_cleaned.to_csv(output_file_name,sep="\t",index=False, mode="w")
+            #final coverage filter
+            vcf_df_cleaned[vcf_df_cleaned["ALT_DP"] >= args.min_depth_coverage].to_csv(output_file_name,sep="\t",index=False, mode="w")
             print("INFO: Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
 
 
@@ -604,6 +603,8 @@ def main():
                                      is_plot_annotate=args.annotate,
                                      axis_labels_font_size=args.font_size,
                                      annotate_text_color=args.annotate_text_color)
+
+
 
 
     #render subplots if this feature is selected
