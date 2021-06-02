@@ -137,7 +137,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             if covdata:
                 if covdata[j][i] == 0:
                     value = "NC"
-                elif covdata[j][i] < min_depth:
+                elif covdata[j][i] < min_depth and data[i][j] != 0:
                     value = "LC"
                 elif float(value) == 0:
                     value = ""
