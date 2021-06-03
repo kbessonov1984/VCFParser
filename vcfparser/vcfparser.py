@@ -171,8 +171,10 @@ def update_cache_site_coverages(cache_dictionary,
 
 
 def main():
-    parser = argparse.ArgumentParser("VCFparser.py parses iVar (https://andersen-lab.github.io/ivar/html/manualpage.html) "
-                                     "TSV or VCF output files and filters out snvs linked to by the VOC\n")
+    parser = argparse.ArgumentParser("vcfparser parses VCF or TSV file and generates heatmaps and parsed VCF files"
+                                     " on query SNVs/VOCs/VOIs.\n"
+    "The iVar TSV or VCF inputs are preferred (https://andersen-lab.github.io/ivar/html/manualpage.html) \n"
+    )
 
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -189,7 +191,7 @@ def main():
     parser.add_argument('-bam', '--bam_files', required=False,
                         type=check_file_existance_and_type,
                         nargs='+',
-                        help="Optionally provide a list of corresponding bam files in THE SAME ORDER as"
+                        help="Optionally provide a list of corresponding bam files in THE SAME ORDER as "
                              "files provided for the -i parameter")
     parser.add_argument('-voc', '--voc_names', type = csv_list, default="all",
 						 required=False, help="List of Variants of Concern names (e.g. UK, SA, Brazil, Nigeria) "
@@ -212,9 +214,9 @@ def main():
                         required=False, help="Set minimum SNV frequency threshold to display (default: 0)"
                         )
     parser.add_argument('--min_depth_coverage', type=int, required=False, metavar="[0-Inf]", default=0,
-                        help="Filter snvs based on min depth coverage (default:0 = no filtering)")
+                        help="Filter SNVs based on min depth coverage (default:0 = no filtering)")
     parser.add_argument('--min_quality', type=int, required=False, metavar="[0-Inf]", default=0,
-                        help="Filter snvs based on min PHRED sequencing quality (default:0  = no filtering)")
+                        help="Filter SNVs based on min PHRED sequencing quality (default:0  = no filtering)")
     parser.add_argument('--annotate', required=False, action='store_true',
                         help="Annotate heatmap with SNV frequency values")
     parser.add_argument('--dpi', required=False, type=int, default=400, metavar="400",
@@ -222,7 +224,7 @@ def main():
     parser.add_argument('--font_size', required=False, type=int, default=2.5, metavar="2.5",
                         help="Labels font size for both axis: 2.5")
     parser.add_argument('--annotate_text_color', required=False, type=str, default="coral", metavar="coral",
-                        help="Annotate text color (freq. values)")
+                        help="Annotate text colour (freq. values)")
 
 
     args = parser.parse_args()

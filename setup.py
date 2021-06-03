@@ -2,9 +2,9 @@ from setuptools import setup
 from setuptools import find_packages
 
 setup(name='VCFParser',
-      version='0.0.1',
+      version='1.0.0',
       python_requires='>=3.7.0,<4',
-      description='Updateable VCF parser for COVID-19 Variant call files',
+      description='Updateable VCF parser for COVID-19 Variant Call Files (VCFs)',
       author='Kyryl Bessonov',
       license='GPLv3',
       install_requires=['pandas', 'matplotlib>=3.3', 'numpy', 'pysam', 'openpyxl'],
