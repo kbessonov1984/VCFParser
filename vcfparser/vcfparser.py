@@ -509,24 +509,25 @@ def main():
 
             if len(vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').to_list()[0]) < 8:
                 warnings.warn("Sample {} might be of wrong format and lack ALT allele frequency values. Please check manually".format(sample_path))
-
-
-            ALT_DP = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[4].astype(float).tolist()
-            ALT_QUAL = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[6].astype(float).tolist()
-            vcf_df_cleaned["ALT_FREQ"] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
-            vcf_df_cleaned["ALT_DP"] = ALT_DP #number of reads supporting ALT allele (depth)
-            vcf_df_cleaned["ALT_QUAL"] = ALT_QUAL   # PHRED quality scores for each SNV
+            else:
+                #This information might not always be available on all VCF input files only in iVar pipeline output
+                ALT_DP = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[4].astype(float).tolist()
+                ALT_QUAL = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[6].astype(float).tolist()
+                vcf_df_cleaned["ALT_FREQ"] = vcf_df_cleaned[vcf_df_cleaned.columns[-1]].str.split(r':').str[7].astype(float).tolist()
+                vcf_df_cleaned["ALT_DP"] = ALT_DP #number of reads supporting ALT allele (depth)
+                vcf_df_cleaned["ALT_QUAL"] = ALT_QUAL   # PHRED quality scores for each SNV
 
             #filter based on min phred score / coverage depth (coverage depth filter is just for heatmap rendering)
-            if args.min_snv_freq_threshold:
+            if args.min_snv_freq_threshold and 'ALT_FREQ' in vcf_df_cleaned.columns:
                 vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_FREQ"] >= args.min_snv_freq_threshold]
-            if args.min_quality:
+            if args.min_quality and 'ALT_QUAL' in vcf_df_cleaned.columns:
                 vcf_df_cleaned = vcf_df_cleaned[vcf_df_cleaned["ALT_QUAL"] >= args.min_quality]
+
 
             if vcf_df_cleaned.shape[0] == 0:
                 warnings.warn("NO MATCHING SNVs were found for VOC {} sample {}. "
-                              "SNV frequency and read depth thresholds might be too stringent or wrong format"
-                              "".format(vocname, sample_path))
+                                  "SNV frequency and read depth thresholds might be too stringent or wrong format"
+                                  "".format(vocname, sample_path))
                 continue
 
 
@@ -540,8 +541,15 @@ def main():
                     match_query = 'Position == ' + str(vcf_df_cleaned.loc[idx, "POS"])
 
                 VOCmeta_sel_index = VOCmeta_df.query(match_query).index
-                if not VOCmeta_sel_index.empty:
+
+                if not VOCmeta_sel_index.empty and 'ALT_FREQ' in vcf_df_cleaned.columns:
                     VOCmeta_df.loc[VOCmeta_sel_index,input_file_name] = vcf_df_cleaned.loc[idx,"ALT_FREQ"]
+                elif not VOCmeta_sel_index.empty and 'ALT_FREQ' not in vcf_df_cleaned.columns:
+                    VOCmeta_df.loc[VOCmeta_sel_index, input_file_name] = -1
+                else:
+                    VOCmeta_df.loc[VOCmeta_sel_index] = 0
+
+
 
 
         #DEBUG
@@ -606,7 +614,10 @@ def main():
                                      axis_labels_font_size=args.font_size,
                                      annotate_text_color=args.annotate_text_color)
 
-
+        #write cache in case there is a crash due to next VOC failure
+        if args.bam_files:
+            with open('.cache_snv_coverages.json', 'w') as fp:
+                fp.write(json.dumps(cache_site_coverages_dict, indent=4))
 
 
     #render subplots if this feature is selected

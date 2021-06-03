@@ -138,6 +138,8 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
                 if float(value) == 0:
                     value = ""
+                elif float(value) == -1:
+                    value = "NA"
                 elif covdata[j][i] == 0:
                     value = "NC"
                 elif covdata[j][i] < min_depth:
@@ -146,6 +148,8 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             else:
                 if float(value) == 0:
                     value = ""
+                elif float(value) == -1:
+                    value = "NA"
 
 
 
