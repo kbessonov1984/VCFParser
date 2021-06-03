@@ -330,6 +330,7 @@ def main():
                 input_file_name = samplename_dict[sample_path]
             else:
                 input_file_name = os.path.splitext(os.path.basename(sample_path))[0] #get samplename without file extension
+
             output_file_name = str(input_file_name.split(".vcf")[0]) + "." + vocname + ".trimmed.vcf"
 
             if inputtype == "vcf":
@@ -556,12 +557,13 @@ def main():
             vcf_df_cleaned.loc[0, "CHROM"] = "NO MATCHING SNVs"
 
 
-        if output_file_name:
-            print("INFO: Writing out {} SNVs to VCF".format(vcf_df_cleaned.shape[0]))
-            #final coverage filter
-            vcf_df_cleaned[vcf_df_cleaned["ALT_DP"] >= args.min_depth_coverage].to_csv(output_file_name,sep="\t",index=False, mode="w")
-            print("INFO: Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
-
+        print("INFO: Writing out {} SNVs to VCF".format(vcf_df_cleaned.shape[0]))
+        if "ALT_DP" in vcf_df_cleaned.columns:
+            vcf_df_cleaned[vcf_df_cleaned["ALT_DP"] >= args.min_depth_coverage].to_csv(output_file_name,
+                                                                                       sep="\t",index=False, mode="w")
+        else:
+            vcf_df_cleaned.to_csv(output_file_name, sep="\t",index=False, mode="w")
+        print("INFO: Trimmed VCF with VOC snvs is written to \"{}\"".format(output_file_name))
 
 
         if args.annotate and args.bam_files:
