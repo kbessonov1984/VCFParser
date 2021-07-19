@@ -546,8 +546,6 @@ def main():
 
                 if not VOCmeta_sel_index.empty and 'ALT_FREQ' in vcf_df_cleaned.columns:
                     VOCmeta_df.loc[VOCmeta_sel_index,input_file_name] = vcf_df_cleaned.loc[idx,"ALT_FREQ"]
-                elif not VOCmeta_sel_index.empty and 'ALT_FREQ' not in vcf_df_cleaned.columns:
-                    VOCmeta_df.loc[VOCmeta_sel_index, input_file_name] = -1
                 else:
                     VOCmeta_df.loc[VOCmeta_sel_index] = 0
 
