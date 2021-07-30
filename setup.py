@@ -1,8 +1,9 @@
 from setuptools import setup
 from setuptools import find_packages
+from vcfparser import __version__
 
 setup(name='VCFParser',
-      version='1.0.0',
+      version=__version__,
       python_requires='>=3.7.0,<4',
       description='Updateable VCF parser for COVID-19 Variant Call Files (VCFs)',
       author='Kyryl Bessonov',

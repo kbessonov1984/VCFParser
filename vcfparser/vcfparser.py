@@ -3,7 +3,7 @@ import pandas as pd
 import argparse, warnings
 import os, re, json
 import matplotlib.pyplot as plt
-
+from vcfparser import __version__
 
 import vcfparser.VOCheatmapper as VOCheatmapper
 import vcfparser.BAMutilities as BAMutilities
@@ -226,6 +226,7 @@ def main():
     parser.add_argument('--annotate_text_color', required=False, type=str, default="coral", metavar="coral",
                         help="Annotate text colour (freq. values)")
 
+    parser.add_argument("--version", action='version', version=f"vcfparser {__version__}")
 
     args = parser.parse_args()
 
